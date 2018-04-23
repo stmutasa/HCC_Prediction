@@ -1,0 +1,1 @@
+Made 71 boxes from 71 patients. Class counts: [35, 36]
