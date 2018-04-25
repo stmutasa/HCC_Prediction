@@ -25,9 +25,9 @@ tf.app.flags.DEFINE_integer('network_dims', 64, """the dimensions fed into the n
 
 #
 tf.app.flags.DEFINE_integer('epoch_size', 53, """How many images were loaded""")
-tf.app.flags.DEFINE_integer('num_epochs', 600, """Number of epochs to run""")
+tf.app.flags.DEFINE_integer('num_epochs', 900, """Number of epochs to run""")
 tf.app.flags.DEFINE_integer('print_interval', 5, """How often to print a summary to console during training""")
-tf.app.flags.DEFINE_integer('checkpoint_interval', 25, """How many Epochs to wait before saving a checkpoint""")
+tf.app.flags.DEFINE_integer('checkpoint_interval', 50, """How many Epochs to wait before saving a checkpoint""")
 tf.app.flags.DEFINE_integer('batch_size', 50, """Number of images to process in a batch.""")
 
 # Regularizers

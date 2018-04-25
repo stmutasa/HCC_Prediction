@@ -170,19 +170,19 @@ def load_protobuf():
     # data['data'] = tf.image.random_brightness(data['data'], max_delta=2)
     # data['data'] = tf.image.random_contrast(data['data'], lower=0.95, upper=1.05)
 
-    # Random gaussian noise
-    T_noise = tf.random_uniform([1], 0, 0.1)
-    noise = tf.random_uniform(shape=[FLAGS.box_dims * 2, FLAGS.box_dims * 2, 4], minval=-T_noise, maxval=T_noise)
-    data['data'] = tf.add(data['data'], tf.cast(noise, tf.float32))
+    # # Random gaussian noise
+    # T_noise = tf.random_uniform([1], 0, 0.1)
+    # noise = tf.random_uniform(shape=[FLAGS.box_dims * 2, FLAGS.box_dims * 2, 4], minval=-T_noise, maxval=T_noise)
+    # data['data'] = tf.add(data['data'], tf.cast(noise, tf.float32))
 
-    # Randomly rotate
-    angle = tf.random_uniform([1], -0.45, 0.45)
-    data['data'] = tf.contrib.image.rotate(data['data'], angle)
-
-    # Random shear:
-    rand = []
-    for z in range(4): rand.append(tf.random_uniform([], minval=-0.15, maxval=0.15, dtype=tf.float32))
-    data['data'] = tf.contrib.image.transform(data['data'], [1, rand[0], rand[1], rand[2], 1, rand[3], 0, 0])
+    # # Randomly rotate
+    # angle = tf.random_uniform([1], -0.45, 0.45)
+    # data['data'] = tf.contrib.image.rotate(data['data'], angle)
+    #
+    # # Random shear:
+    # rand = []
+    # for z in range(4): rand.append(tf.random_uniform([], minval=-0.15, maxval=0.15, dtype=tf.float32))
+    # data['data'] = tf.contrib.image.transform(data['data'], [1, rand[0], rand[1], rand[2], 1, rand[3], 0, 0])
 
     # Crop center
     data['data'] = tf.image.central_crop(data['data'], 0.55)
@@ -199,7 +199,7 @@ def load_protobuf():
     # Reshape image
     data['data'] = tf.image.resize_images(data['data'], [FLAGS.network_dims, FLAGS.network_dims])
 
-    # TODO: Randomly dropout the other channels
+    # Randomly dropout the other channels
     pvp = tf.cond(tf.squeeze(tf.random_uniform([1], 0, 1, dtype=tf.float32)) > 0.5,
                                     lambda: tf.multiply(data['data'][:,:,1], 0), lambda:  tf.multiply(data['data'][:,:,1], 1))
     dlp = tf.cond(tf.squeeze(tf.random_uniform([1], 0, 1, dtype=tf.float32)) > 0.6,
