@@ -1,1 +1,8 @@
-Made 71 boxes from 71 patients. Class counts: [35, 36]
+Save files with
+49 patients
+57 patients 
+Unable to retreive phase for:  /home/stmutasa/PycharmProjects/Datasets/HCC/segments2/133 OD Ph1AXIAL axial.nrrd
+Unable to retreive phase for:  /home/stmutasa/PycharmProjects/Datasets/HCC/segments2/154 FA Ph1AXIAL axial.nrrd
+
+Made 49 boxes from 49 patients. Class counts: [25, 24]
+Made 57 boxes from 57 patients. Class counts: [23, 34]

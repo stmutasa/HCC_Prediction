@@ -34,33 +34,34 @@ def forward_pass(images, phase_train):
     :return: l2: the value of the l2 loss
     """
 
-    K = 16
+    # Filter size of the first layer
+    K = 12
 
     # First layer is conv
     print('Input Images: ', images)
     images = tf.expand_dims(images, -1)
 
-    # # Residual blocks
-    # conv = sdn.convolution('Conv1', images, 3, K, 1, phase_train=phase_train)
-    # conv = sdn.residual_layer('Residual1a', conv, 3, K * 2, 2, phase_train=phase_train) # 32
-    # conv = sdn.residual_layer('Residual1b', conv, 3, K * 2, 1, phase_train=phase_train)
-    # conv = sdn.residual_layer('Residual2a', conv, 3, K * 4, 2, phase_train=phase_train) # 16
-    # conv = sdn.residual_layer('Residual2b', conv, 3, K * 4, 1, phase_train=phase_train)
-    # conv = sdn.residual_layer('Residual3a', conv, 3, K * 8, 2, phase_train=phase_train)  # 8
-    # conv = sdn.residual_layer('Residual3b', conv, 3, K * 8, 1, phase_train=phase_train)
-    # conv = sdn.inception_layer('Inception', conv, K * 16, S=2, phase_train=phase_train) # 4
-    # conv = sdn.residual_layer('Residual4a', conv, 3, K * 16, 1, phase_train=phase_train)
-    # conv = sdn.residual_layer('Residual4b', conv, 3, K * 16, 1, phase_train=phase_train)
-    # conv = sdn.residual_layer('Residual4c', conv, 3, K * 16, 1, phase_train=phase_train)
+    # Residual blocks
+    conv = sdn.convolution('Conv1', images, 3, K, 1, phase_train=phase_train)
+    conv = sdn.residual_layer('Residual1a', conv, 3, K * 2, 2, phase_train=phase_train) # 32
+    conv = sdn.residual_layer('Residual1b', conv, 3, K * 2, 1, phase_train=phase_train)
+    conv = sdn.residual_layer('Residual2a', conv, 3, K * 4, 2, phase_train=phase_train) # 16
+    conv = sdn.residual_layer('Residual2b', conv, 3, K * 4, 1, phase_train=phase_train)
+    conv = sdn.residual_layer('Residual3a', conv, 3, K * 8, 2, phase_train=phase_train)  # 8
+    conv = sdn.residual_layer('Residual3b', conv, 3, K * 8, 1, phase_train=phase_train)
+    conv = sdn.inception_layer('Inception', conv, K * 16, S=2, phase_train=phase_train) # 4
+    conv = sdn.residual_layer('Residual4a', conv, 3, K * 16, 1, phase_train=phase_train)
+    conv = sdn.residual_layer('Residual4b', conv, 3, K * 16, 1, phase_train=phase_train)
+    conv = sdn.residual_layer('Residual4c', conv, 3, K * 16, 1, phase_train=phase_train)
 
-    # Define densenet class
-    dense = SDN.DenseNet(nb_blocks=6, filters=6, sess=None, phase_train=phase_train, summary=False)
-    conv = sdn.convolution('Conv1', images, 3, 16, 1, phase_train=phase_train)
-    conv = dense.dense_block(conv, nb_layers=4, layer_name='Dense64', downsample=True)
-    conv = dense.dense_block(conv, nb_layers=8, layer_name='Dense32', downsample=True)
-    conv = dense.dense_block(conv, nb_layers=16, layer_name='Dense16', downsample=True)
-    conv = dense.dense_block(conv, nb_layers=24, layer_name='Dense8', downsample=True)
-    conv = dense.dense_block(conv, nb_layers=48, layer_name='Dense4', downsample=False, keep_prob=FLAGS.dropout_factor)
+    # # Define densenet class
+    # dense = SDN.DenseNet(nb_blocks=6, filters=6, sess=None, phase_train=phase_train, summary=False)
+    # conv = sdn.convolution('Conv1', images, 3, 16, 1, phase_train=phase_train)
+    # conv = dense.dense_block(conv, nb_layers=4, layer_name='Dense64', downsample=True)
+    # conv = dense.dense_block(conv, nb_layers=8, layer_name='Dense32', downsample=True)
+    # conv = dense.dense_block(conv, nb_layers=16, layer_name='Dense16', downsample=True)
+    # conv = dense.dense_block(conv, nb_layers=24, layer_name='Dense8', downsample=True)
+    # conv = dense.dense_block(conv, nb_layers=48, layer_name='Dense4', downsample=False, keep_prob=FLAGS.dropout_factor)
 
     print('End Dims', conv)
 

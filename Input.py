@@ -7,8 +7,8 @@ import glob, os
 import numpy as np
 import tensorflow as tf
 import SODLoader as SDL
-from pathlib import Path
 
+from pathlib import Path
 from random import shuffle
 
 # Define the flags class for variables
@@ -29,7 +29,7 @@ def pre_process(box_dims=76):
     """
 
     # Load the filenames and randomly shuffle them
-    filenames = sdl.retreive_filelist('nrrd', True, home_dir)
+    filenames = sdl.retreive_filelist('nrrd', True, home_dir + 'segments2/')
     shuffle(filenames)
     print (len(filenames), 'Base Files: ', filenames)
 
@@ -38,44 +38,59 @@ def pre_process(box_dims=76):
     print(len(labels), 'Labels: ', labels)
 
     # Global variables
-    display, counter, data, index, pt, pts_loaded, images = [], [0, 0], {}, 0, 0, [], {}
+    display, counter, data, index, pt, pts_loaded, images, tracker = [], [0, 0], {}, 0, 0, [], {}, 0
 
-    for file in filenames:
-
-        # Skip label files. will load later
-        if 'label' in file: continue
-
-        # Retreive patient information
-        basename = os.path.basename(file).upper()
-        patient = basename.split(' ')[0]
-
-        if 'ART' in basename: phase = 'AP'
-        elif 'PORT' in basename: phase = 'PV'
-        elif 'DEL' in basename: phase = 'DEL'
-        elif 'HPB' in basename: phase = 'HPB'
-
-        try: label = int(labels[patient]['Label'])
-        except:
-            print ('Unable to load: ', file)
-            continue
-
-        # Load the image volumes and segmentations
-        try: _ = images[patient]
-        except: images[patient] = { 'AP': None, 'PV': None, 'DEL': None, 'HPB': None, 'Label': label, 'PT': patient,
-                                    'AP_Seg': None, 'PV_Seg': None, 'DEL_Seg': None, 'HPB_Seg': None}
-
-        # Load image then find/load the segmentations. Remember we're loading a 4 part tuple with size, origin and spacing
-        images[patient][phase] = sdl.load_nrrd_3D(file)
-        for z in filenames:
-            if 'label' not in z: continue
-            if os.path.basename(z).upper().split(' ')[0] != patient: continue
-            if phase in z: images[patient][phase+'_Seg'] = sdl.load_nrrd_3D(z)
-
+    # for file in filenames:
+    #
+    #     # Skip label files. will load later
+    #     if 'label' in file: continue
+    #
+    #     # Retreive patient information
+    #     basename = os.path.basename(file).upper()
+    #     patient = basename.split(' ')[0]
+    #
+    #     if 'ART' in basename or 'AP' in basename: phase = 'AP'
+    #     elif 'PORT' in basename or 'PV' in basename: phase = 'PV'
+    #     elif 'DEL' in basename: phase = 'DEL'
+    #     elif 'HPB' in basename: phase = 'HPB'
+    #     else:
+    #         print ('Unable to retreive phase for: ', file)
+    #         continue
+    #
+    #     try: label = int(labels[patient]['Label'])
+    #     except:
+    #         print ('Unable to load: ', file)
+    #         continue
+    #
+    #     # Load the image volumes and segmentations
+    #     try: _ = images[patient]
+    #     except: images[patient] = { 'AP': None, 'PV': None, 'DEL': None, 'HPB': None, 'Label': label, 'PT': patient,
+    #                                 'AP_Seg': None, 'PV_Seg': None, 'DEL_Seg': None, 'HPB_Seg': None}
+    #
+    #     # Load/normalize image then find/load the segmentations. Remember we're loading a 4 part tuple with size, origin and spacing
+    #     images[patient][phase], _, _, _ = sdl.load_nrrd_3D(file)
+    #     images[patient][phase] = sdl.normalize_MRI_histogram(images[patient][phase], False, center_type='mean')
+    #     for z in filenames:
+    #         if 'label' not in z: continue
+    #         if os.path.basename(z).upper().split(' ')[0] != patient: continue
+    #         if phase in z: images[patient][phase+'_Seg'] = sdl.load_nrrd_3D(z)
+    #
+    #     tracker +=1
+    #     if tracker %10 ==0: print ('Processed %s volumes' %tracker)
+    #
     # # Save the dictionary
     # print ('Loaded %s patients fully.' %len(images))
-    # sdl.save_dict_pickle(images, 'data/intermediate')
-    # images = sdl.load_dict_pickle('data/intermediate_pickle.p')
-    # print ('Loaded dic: ', len(images))
+    # sdl.save_dict_pickle(images, 'data/intermediate2')
+
+    # Load the saved files
+    # images1 = sdl.load_dict_pickle('data/intermediate_pickle.p')
+    # images2 = sdl.load_dict_pickle('data/intermediate2_pickle.p')
+    # images = {**images1, **images2}
+    # print ('Combined size %s and %s dicts into one size %s dict' %(len(images1), len(images2), len(images)))
+    # del images1, images2
+
+    images = sdl.load_dict_pickle('data/intermediate2_pickle.p')
+    print('Loaded %s patients' % len(images))
 
     for patient, dic in images.items():
 
@@ -87,18 +102,13 @@ def pre_process(box_dims=76):
         for phase, volume in dic.items():
             if phase not in image_index: continue
 
-            # Apply the segmentations
-            try: _ = volume[0] * dic[phase+'_Seg'][0]
-            except:
-                if 'HPB' not in phase: print (patient, phase, 'Segmentation error')
-                continue
-
-            # Normalize the whole image
-            norm_img = volume[0]
-            norm_img = sdl.normalize(norm_img, True, 0.25)
+            # Apply the segmentations as a test for their existence
+            try: _ = volume * dic[phase+'_Seg']
+            except: continue
 
             # create a box
-            blob, cn, sizes, num_blobs = sdl.all_blobs(dic[phase+'_Seg'][0])
+            norm_img = volume
+            blob, cn, sizes, num_blobs = sdl.all_blobs(dic[phase+'_Seg'])
             for z in range (1):
 
                 # Generate the box. Save a double box for rotations later
@@ -125,7 +135,6 @@ def pre_process(box_dims=76):
 
         # Save the data
         data[index] = {'data': image_data, 'label': dic['Label'], 'pt': patient}
-        print (image_data.shape, type(image_data), image_data.dtype)
 
         # Increment counter
         index += 1
@@ -138,7 +147,7 @@ def pre_process(box_dims=76):
     print ('Made %s boxes from %s patients. Class counts: %s' %(index, pt, counter))
 
     # Save the data
-    sdl.save_tfrecords(data, 4, file_root='data/HCC_4C_1SL_')
+    sdl.save_tfrecords(data, 3, file_root='data/HCC_4C_1SL_2')
     sdl.save_dict_filetypes(data[0])
 
 
@@ -166,23 +175,23 @@ def load_protobuf():
 
     # Data Augmentation ------------------
 
-    # # Random contrast and brightness
-    # data['data'] = tf.image.random_brightness(data['data'], max_delta=2)
-    # data['data'] = tf.image.random_contrast(data['data'], lower=0.95, upper=1.05)
+    # Random contrast and brightness
+    data['data'] = tf.image.random_brightness(data['data'], max_delta=2)
+    data['data'] = tf.image.random_contrast(data['data'], lower=0.95, upper=1.05)
 
-    # # Random gaussian noise
-    # T_noise = tf.random_uniform([1], 0, 0.1)
-    # noise = tf.random_uniform(shape=[FLAGS.box_dims * 2, FLAGS.box_dims * 2, 4], minval=-T_noise, maxval=T_noise)
-    # data['data'] = tf.add(data['data'], tf.cast(noise, tf.float32))
+    # Random gaussian noise
+    T_noise = tf.random_uniform([1], 0, 0.1)
+    noise = tf.random_uniform(shape=[FLAGS.box_dims * 2, FLAGS.box_dims * 2, 4], minval=-T_noise, maxval=T_noise)
+    data['data'] = tf.add(data['data'], tf.cast(noise, tf.float32))
 
-    # # Randomly rotate
-    # angle = tf.random_uniform([1], -0.45, 0.45)
-    # data['data'] = tf.contrib.image.rotate(data['data'], angle)
-    #
-    # # Random shear:
-    # rand = []
-    # for z in range(4): rand.append(tf.random_uniform([], minval=-0.15, maxval=0.15, dtype=tf.float32))
-    # data['data'] = tf.contrib.image.transform(data['data'], [1, rand[0], rand[1], rand[2], 1, rand[3], 0, 0])
+    # Randomly rotate
+    angle = tf.random_uniform([1], -0.45, 0.45)
+    data['data'] = tf.contrib.image.rotate(data['data'], angle)
+
+    # Random shear:
+    rand = []
+    for z in range(4): rand.append(tf.random_uniform([], minval=-0.15, maxval=0.15, dtype=tf.float32))
+    data['data'] = tf.contrib.image.transform(data['data'], [1, rand[0], rand[1], rand[2], 1, rand[3], 0, 0])
 
     # Crop center
     data['data'] = tf.image.central_crop(data['data'], 0.55)
