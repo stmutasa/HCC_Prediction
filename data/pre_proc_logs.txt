@@ -1,6 +1,6 @@
 Save files with
-49 patients
-57 patients 
+52 Intermediate 2
+54 Intermediate 1 
 Unable to retreive phase for:  /home/stmutasa/PycharmProjects/Datasets/HCC/segments2/133 OD Ph1AXIAL axial.nrrd
 Unable to retreive phase for:  /home/stmutasa/PycharmProjects/Datasets/HCC/segments2/154 FA Ph1AXIAL axial.nrrd
 

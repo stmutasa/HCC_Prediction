@@ -7,6 +7,7 @@ import glob, os
 import numpy as np
 import tensorflow as tf
 import SODLoader as SDL
+import time
 
 from pathlib import Path
 from random import shuffle
@@ -28,8 +29,10 @@ def pre_process(box_dims=76):
     :return:
     """
 
+    time.sleep(0)
+
     # Load the filenames and randomly shuffle them
-    filenames = sdl.retreive_filelist('nrrd', True, home_dir + 'segments2/')
+    filenames = sdl.retreive_filelist('nrrd', True, home_dir + 'segments/')
     shuffle(filenames)
     print (len(filenames), 'Base Files: ', filenames)
 
@@ -44,6 +47,7 @@ def pre_process(box_dims=76):
     #
     #     # Skip label files. will load later
     #     if 'label' in file: continue
+    #     if '.seg.' in file: continue
     #
     #     # Retreive patient information
     #     basename = os.path.basename(file).upper()
@@ -68,7 +72,7 @@ def pre_process(box_dims=76):
     #                                 'AP_Seg': None, 'PV_Seg': None, 'DEL_Seg': None, 'HPB_Seg': None}
     #
     #     # Load/normalize image then find/load the segmentations. Remember we're loading a 4 part tuple with size, origin and spacing
-    #     images[patient][phase], _, _, _ = sdl.load_nrrd_3D(file)
+    #     images[patient][phase], _, _, shape = sdl.load_nrrd_3D(file)
     #     images[patient][phase] = sdl.normalize_MRI_histogram(images[patient][phase], False, center_type='mean')
     #     for z in filenames:
     #         if 'label' not in z: continue
@@ -76,11 +80,13 @@ def pre_process(box_dims=76):
     #         if phase in z: images[patient][phase+'_Seg'] = sdl.load_nrrd_3D(z)
     #
     #     tracker +=1
-    #     if tracker %10 ==0: print ('Processed %s volumes' %tracker)
+    #     if tracker %10 ==0:
+    #         print ('Processed %s volumes' %tracker)
+    #
     #
     # # Save the dictionary
     # print ('Loaded %s patients fully.' %len(images))
-    # sdl.save_dict_pickle(images, 'data/intermediate2')
+    # sdl.save_dict_pickle(images, 'data/intermediate')
 
     # Load the saved files
     # images1 = sdl.load_dict_pickle('data/intermediate_pickle.p')
@@ -89,7 +95,7 @@ def pre_process(box_dims=76):
     # print ('Combined size %s and %s dicts into one size %s dict' %(len(images1), len(images2), len(images)))
     # del images1, images2
 
-    images = sdl.load_dict_pickle('data/intermediate2_pickle.p')
+    images = sdl.load_dict_pickle('data/intermediate_pickle.p')
     print('Loaded %s patients' % len(images))
 
     for patient, dic in images.items():
@@ -100,6 +106,7 @@ def pre_process(box_dims=76):
         # Now process the sequences for this patient
         image_index = ['AP', 'PV', 'DEL', 'HPB']
         for phase, volume in dic.items():
+            print(phase)
             if phase not in image_index: continue
 
             # Apply the segmentations as a test for their existence
@@ -113,6 +120,10 @@ def pre_process(box_dims=76):
 
                 # Generate the box. Save a double box for rotations later
                 box, _ = sdl.generate_box(norm_img[cn[z][0]], (cn[z][1], cn[z][2]), box_dims*2, dim3d=False)
+
+                # TODO: Testing
+                print('Displaying box', box.shape, patient)
+                sdl.display_single_image(box, False, patient)
 
                 # Save the data
                 pt_data[phase] = box.astype(np.float32)
@@ -133,6 +144,8 @@ def pre_process(box_dims=76):
         try: image_data[ :, :, 3] = pt_data['HPB']
         except: pass
 
+        # for z in range (4): sdl.display_single_image(image_data[:,:, z], False, title=patient)
+
         # Save the data
         data[index] = {'data': image_data, 'label': dic['Label'], 'pt': patient}
 
@@ -143,11 +156,12 @@ def pre_process(box_dims=76):
         # Done with this patient
         pt += 1
 
-    # # Done with all patients
+    # Done with all patients
     print ('Made %s boxes from %s patients. Class counts: %s' %(index, pt, counter))
+    sdl.display_single_image(data[0]['data'][:, :, 0])
 
     # Save the data
-    sdl.save_tfrecords(data, 3, file_root='data/HCC_4C_1SL_2')
+    sdl.save_tfrecords(data, 3, file_root='data/HCC_4C_1SL_1')
     sdl.save_dict_filetypes(data[0])
 
 
@@ -256,3 +270,4 @@ def load_validation_set():
 
     return sdl.val_batches(data, FLAGS.batch_size)
 
+pre_process()
