@@ -11,6 +11,8 @@ import time
 
 from pathlib import Path
 from random import shuffle
+from sys import getsizeof
+from matplotlib import pyplot as plt
 
 # Define the flags class for variables
 FLAGS = tf.app.flags.FLAGS
@@ -19,20 +21,43 @@ FLAGS = tf.app.flags.FLAGS
 home_dir = str(Path.home()) + '/PycharmProjects/Datasets/HCC/'
 sdl = SDL.SODLoader(data_root=home_dir)
 
-
-def pre_process(box_dims=76):
+def split_dict_equally(input_dict, chunks=2):
 
     """
-    Loads the files to a protobuf
-    :param warps:
+    Function that splits a dictionary into equal chunks
+    :param input_dict: input dictionary
+    :param chunks: number of chunks
+    :return: A list of dictionaries
+    """
+
+    # Create empty dictionaries list first
+    return_list = [dict() for idx in range(chunks)]
+    idx = 0
+
+    # Save into each listed dictionary one at a time
+    for k,v in input_dict.items():
+        return_list[idx][k] = v
+
+        # Loop back to beginning
+        if idx < chunks-1: idx += 1
+        else: idx = 0
+
+    return return_list
+
+
+def pre_process(box_dims=76, chunks=3):
+
+    """
+    Loads the files to a protobuf in two parts: 1. combine all phases for each pt, 2: save the boxes
     :param box_dims: dimensions of the saved images
+    :param chunks: number of chunks to save/load
     :return:
     """
 
     time.sleep(0)
 
     # Load the filenames and randomly shuffle them
-    filenames = sdl.retreive_filelist('nrrd', True, home_dir + 'segments/')
+    filenames = sdl.retreive_filelist('nrrd', True, home_dir + 'segments/') + sdl.retreive_filelist('nrrd', True, home_dir + 'segments2/')
     shuffle(filenames)
     print (len(filenames), 'Base Files: ', filenames)
 
@@ -42,6 +67,7 @@ def pre_process(box_dims=76):
 
     # Global variables
     display, counter, data, index, pt, pts_loaded, images, tracker = [], [0, 0], {}, 0, 0, [], {}, 0
+    size = 0
 
     # for file in filenames:
     #
@@ -53,12 +79,12 @@ def pre_process(box_dims=76):
     #     basename = os.path.basename(file).upper()
     #     patient = basename.split(' ')[0]
     #
-    #     if 'ART' in basename or 'AP' in basename: phase = 'AP'
-    #     elif 'PORT' in basename or 'PV' in basename: phase = 'PV'
-    #     elif 'DEL' in basename: phase = 'DEL'
-    #     elif 'HPB' in basename: phase = 'HPB'
+    #     if 'ART' in basename or 'AP' in basename or 'PH1' in basename: phase = 'AP'
+    #     elif 'PORT' in basename or 'PV' in basename or 'PH2' in basename: phase = 'PV'
+    #     elif 'DEL' in basename or 'PH3' in basename: phase = 'DEL'
+    #     elif 'HPB' in basename or 'PH4' in basename: phase = 'HPB'
     #     else:
-    #         print ('Unable to retreive phase for: ', file)
+    #         print ('Unable to retreive phase for: ', file, basename)
     #         continue
     #
     #     try: label = int(labels[patient]['Label'])
@@ -73,96 +99,92 @@ def pre_process(box_dims=76):
     #
     #     # Load/normalize image then find/load the segmentations. Remember we're loading a 4 part tuple with size, origin and spacing
     #     images[patient][phase], _, _, shape = sdl.load_nrrd_3D(file)
-    #     images[patient][phase] = sdl.normalize_MRI_histogram(images[patient][phase], False, center_type='mean')
+    #     # images[patient][phase] = sdl.normalize_MRI_histogram(images[patient][phase], False, center_type='mean')
+    #     # print(images[patient][phase].dtype, images[patient][phase].nbytes)
     #     for z in filenames:
     #         if 'label' not in z: continue
     #         if os.path.basename(z).upper().split(' ')[0] != patient: continue
-    #         if phase in z: images[patient][phase+'_Seg'] = sdl.load_nrrd_3D(z)
+    #         if phase in z: images[patient][phase+'_Seg'] = sdl.load_nrrd_3D(z)[0]
     #
     #     tracker +=1
+    #     try: size += images[patient][phase+'_Seg'].nbytes+images[patient][phase].nbytes
+    #     except: print ('No segmentations! ', file)
     #     if tracker %10 ==0:
-    #         print ('Processed %s volumes' %tracker)
-    #
-    #
-    # # Save the dictionary
+    #         print ('Processed %s volumes %s MB so far' %(tracker, size//1e6))
+
+
+    # # Save the dictionary in 3 chunks
     # print ('Loaded %s patients fully.' %len(images))
-    # sdl.save_dict_pickle(images, 'data/intermediate')
+    # split_dicts = split_dict_equally(images, chunks)
+    # for z in range (chunks): sdl.save_dict_pickle(split_dicts[z], ('data/intermediate%s' %(z+1)))
 
-    # Load the saved files
-    # images1 = sdl.load_dict_pickle('data/intermediate_pickle.p')
-    # images2 = sdl.load_dict_pickle('data/intermediate2_pickle.p')
-    # images = {**images1, **images2}
-    # print ('Combined size %s and %s dicts into one size %s dict' %(len(images1), len(images2), len(images)))
-    # del images1, images2
+    # Loop through all 3 files
+    for batch in range(chunks):
 
-    images = sdl.load_dict_pickle('data/intermediate_pickle.p')
-    print('Loaded %s patients' % len(images))
+        images = sdl.load_dict_pickle(('data/intermediate%s_pickle.p' %(batch+1)))
+        print('Loaded %s patients' % len(images))
 
-    for patient, dic in images.items():
+        for patient, dic in images.items():
 
-        # Patient global variables
-        pt_data = {'AP': None, 'PV': None, 'DEL': None, 'HPB': None}
+            # Patient global variables
+            pt_data = {'AP': None, 'PV': None, 'DEL': None, 'HPB': None}
 
-        # Now process the sequences for this patient
-        image_index = ['AP', 'PV', 'DEL', 'HPB']
-        for phase, volume in dic.items():
-            print(phase)
-            if phase not in image_index: continue
+            # Now process the sequences for this patient
+            image_index = ['AP', 'PV', 'DEL', 'HPB']
+            for phase, volume in dic.items():
+                if phase not in image_index: continue
 
-            # Apply the segmentations as a test for their existence
-            try: _ = volume * dic[phase+'_Seg']
-            except: continue
+                # Convert to numpy array
+                try: volume, segments = np.asarray(volume, np.int16), np.asarray(dic[phase+'_Seg'], np.int16)
+                except: continue
 
-            # create a box
-            norm_img = volume
-            blob, cn, sizes, num_blobs = sdl.all_blobs(dic[phase+'_Seg'])
-            for z in range (1):
+                # Normalize volume and create a box
+                volume = sdl.normalize_MRI_histogram(volume)
+                blob, cn, sizes, num_blobs = sdl.all_blobs(dic[phase+'_Seg'])
+                try:
+                    for z in range (1):
 
-                # Generate the box. Save a double box for rotations later
-                box, _ = sdl.generate_box(norm_img[cn[z][0]], (cn[z][1], cn[z][2]), box_dims*2, dim3d=False)
+                        # Generate the box. Save a double box for rotations later
+                        box, _ = sdl.generate_box(volume[cn[z][0]], (cn[z][1], cn[z][2]), box_dims*2, dim3d=False)
 
-                # TODO: Testing
-                print('Displaying box', box.shape, patient)
-                sdl.display_single_image(box, False, patient)
+                        # Save the data
+                        pt_data[phase] = box.astype(np.float32)
+                except:
+                    print ('Box saving failed for: ', patient, phase)
 
-                # Save the data
-                pt_data[phase] = box.astype(np.float32)
+            # Now work on saving the volume of the scan with channels
+            image_data = np.zeros(shape=(box_dims*2, box_dims*2, 4), dtype=np.float32)
 
-            # Garbage
-            del norm_img, box
+            # Set the channels as follows. If the phase doesnt exist, keep the channel as zero
+            try: image_data[: ,: , 0] = pt_data['AP']
+            except: pass
+            try: image_data[ :, :, 1] = pt_data['PV']
+            except: pass
+            try: image_data[ :, :, 2] = pt_data['DEL']
+            except: pass
+            try: image_data[ :, :, 3] = pt_data['HPB']
+            except: pass
 
-        # Now work on saving the volume of the scan with channels
-        image_data = np.zeros(shape=(box_dims*2, box_dims*2, 4), dtype=np.float32)
+            # Save the data
+            data[index] = {'data': image_data, 'label': dic['Label'], 'pt': patient}
+            del volume, segments, image_data, box
 
-        # Set the channels as follows. If the phase doesnt exist, keep the channel as zero
-        try: image_data[: ,: , 0] = pt_data['AP']
-        except: pass
-        try: image_data[ :, :, 1] = pt_data['PV']
-        except: pass
-        try: image_data[ :, :, 2] = pt_data['DEL']
-        except: pass
-        try: image_data[ :, :, 3] = pt_data['HPB']
-        except: pass
+            # Increment counter
+            index += 1
+            counter[dic['Label']] += 1
 
-        # for z in range (4): sdl.display_single_image(image_data[:,:, z], False, title=patient)
+            # Done with this patient
+            pt += 1
+            if pt%5==0: print ('%s patients saved...' %pt)
+
+        # Done with all patients
+        print ('Made %s boxes from %s patients. Class counts: %s' %(index, pt, counter))
 
         # Save the data
-        data[index] = {'data': image_data, 'label': dic['Label'], 'pt': patient}
-
-        # Increment counter
-        index += 1
-        counter[dic['Label']] += 1
-
-        # Done with this patient
-        pt += 1
-
-    # Done with all patients
-    print ('Made %s boxes from %s patients. Class counts: %s' %(index, pt, counter))
-    sdl.display_single_image(data[0]['data'][:, :, 0])
-
-    # Save the data
-    sdl.save_tfrecords(data, 3, file_root='data/HCC_4C_1SL_1')
-    sdl.save_dict_filetypes(data[0])
+        sdl.save_tfrecords(data, 1, file_root=('data/HCC%s_4C_76' %(batch+1)))
+        if batch==0: sdl.save_dict_filetypes(data[0])
+        del data
+        data = {}
 
 
 def load_protobuf():
@@ -222,18 +244,22 @@ def load_protobuf():
     # Reshape image
     data['data'] = tf.image.resize_images(data['data'], [FLAGS.network_dims, FLAGS.network_dims])
 
-    # Randomly dropout the other channels
-    pvp = tf.cond(tf.squeeze(tf.random_uniform([1], 0, 1, dtype=tf.float32)) > 0.5,
-                                    lambda: tf.multiply(data['data'][:,:,1], 0), lambda:  tf.multiply(data['data'][:,:,1], 1))
-    dlp = tf.cond(tf.squeeze(tf.random_uniform([1], 0, 1, dtype=tf.float32)) > 0.6,
-                                    lambda: tf.multiply(data['data'][:, :, 2], 0), lambda:  tf.multiply(data['data'][:, :, 2], 1))
-
-    # Concat the information
-    data['data'] = tf.concat([tf.expand_dims(data['data'][:, :, 0], -1), tf.expand_dims(pvp, -1),
-                              tf.expand_dims(dlp, -1), tf.expand_dims(data['data'][:, :, 3], -1)], axis=-1)
+    # # Randomly dropout the other channels
+    # pvp = tf.cond(tf.squeeze(tf.random_uniform([1], 0, 1, dtype=tf.float32)) > 0.5,
+    #                                 lambda: tf.multiply(data['data'][:,:,1], 0), lambda:  tf.multiply(data['data'][:,:,1], 1))
+    # dlp = tf.cond(tf.squeeze(tf.random_uniform([1], 0, 1, dtype=tf.float32)) > 0.6,
+    #                                 lambda: tf.multiply(data['data'][:, :, 2], 0), lambda:  tf.multiply(data['data'][:, :, 2], 1))
+    #
+    # # Concat the information
+    # data['data'] = tf.concat([tf.expand_dims(data['data'][:, :, 0], -1), tf.expand_dims(pvp, -1),
+    #                           tf.expand_dims(dlp, -1), tf.expand_dims(data['data'][:, :, 3], -1)], axis=-1)
 
     # Display the images
     tf.summary.image('Train IMG', tf.reshape(data['data'][:,:,0], shape=[1, FLAGS.network_dims, FLAGS.network_dims, 1]), 4)
+
+    # For now, only use the arterial or PVP
+    data['data'] = tf.cond(tf.squeeze(tf.random_uniform([1], 0, 1, dtype=tf.float32)) > 0.5,
+                                     lambda: tf.multiply(data['data'][:,:,1], 1), lambda:  tf.multiply(data['data'][:,:,0], 1))
 
     # Return data dictionary
     return sdl.randomize_batches(data, FLAGS.batch_size)
@@ -268,6 +294,7 @@ def load_validation_set():
     # Display the images
     tf.summary.image('Test IMG', tf.reshape(data['data'][:,:,0], shape=[1, FLAGS.network_dims, FLAGS.network_dims, 1]), 4)
 
-    return sdl.val_batches(data, FLAGS.batch_size)
+    # For now, only use the arterial or PVP
+    data['data'] = data['data'][:, :, 0]
 
-pre_process()
+    return sdl.val_batches(data, FLAGS.batch_size)

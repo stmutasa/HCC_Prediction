@@ -22,11 +22,11 @@ FLAGS = tf.app.flags.FLAGS
 
 # Define some of the immutable variables
 tf.app.flags.DEFINE_integer('num_classes', 2, """ Number of classes + 1 for background""")
-tf.app.flags.DEFINE_string('test_files', '0', """Files for testing have this name""")
+tf.app.flags.DEFINE_string('test_files', 'HCC2', """Files for testing have this name""")
 tf.app.flags.DEFINE_integer('box_dims', 76, """dimensions of the input pictures""")
 tf.app.flags.DEFINE_integer('network_dims', 64, """the dimensions fed into the network""")
-tf.app.flags.DEFINE_integer('epoch_size', 18, """How many images were loaded""")
-tf.app.flags.DEFINE_integer('batch_size', 6, """Number of images to process in a batch.""")
+tf.app.flags.DEFINE_integer('epoch_size', 35, """How many images were loaded""")
+tf.app.flags.DEFINE_integer('batch_size', 7, """Number of images to process in a batch.""")
 
 # Regularizers
 tf.app.flags.DEFINE_float('dropout_factor', 1.0, """ Keep probability""")
@@ -35,7 +35,7 @@ tf.app.flags.DEFINE_float('moving_avg_decay', 0.999, """ The decay rate for the 
 
 # Directory control
 tf.app.flags.DEFINE_string('train_dir', 'training/', """Directory to write event logs and save checkpoint files""")
-tf.app.flags.DEFINE_string('RunInfo', 'Retrain_all/', """Unique file name for this training run""")
+tf.app.flags.DEFINE_string('RunInfo', 'Reloaded/', """Unique file name for this training run""")
 tf.app.flags.DEFINE_integer('GPU', 0, """Which GPU to use""")
 
 
@@ -52,7 +52,7 @@ def eval():
         phase_train = tf.placeholder(tf.bool)
 
         # Build a graph that computes the prediction from the inference model (Forward pass)
-        logits, _ = network.forward_pass(valid['data'][:,:,:,0], phase_train=phase_train)
+        logits, _ = network.forward_pass(valid['data'], phase_train=phase_train)
         labels = valid['label']
 
         # Initialize variables operation

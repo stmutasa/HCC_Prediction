@@ -39,7 +39,7 @@ def forward_pass(images, phase_train):
 
     # First layer is conv
     print('Input Images: ', images)
-    #images = tf.expand_dims(images, -1)
+    images = tf.expand_dims(images, -1)
 
     # Residual blocks
     conv = sdn.convolution('Conv1', images, 3, K, 1, phase_train=phase_train)

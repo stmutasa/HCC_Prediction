@@ -4,5 +4,15 @@ Save files with
 Unable to retreive phase for:  /home/stmutasa/PycharmProjects/Datasets/HCC/segments2/133 OD Ph1AXIAL axial.nrrd
 Unable to retreive phase for:  /home/stmutasa/PycharmProjects/Datasets/HCC/segments2/154 FA Ph1AXIAL axial.nrrd
 
+75 is just a HPB
+
 Made 49 boxes from 49 patients. Class counts: [25, 24]
 Made 57 boxes from 57 patients. Class counts: [23, 34]
+
+Made 35 boxes from 35 patients. Class counts: [14, 21]
+
+Made 70 boxes from 70 patients. Class counts: [33, 37] [19, 16]
+
+Box saving failed for:  6 AP
+
+Made 105 boxes from 105 patients. Class counts: [48, 57] [15, 20]

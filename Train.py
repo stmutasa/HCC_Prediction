@@ -19,12 +19,12 @@ FLAGS = tf.app.flags.FLAGS
 
 # Define some of the immutable variables
 tf.app.flags.DEFINE_integer('num_classes', 2, """ Number of classes + 1 for background""")
-tf.app.flags.DEFINE_string('test_files', '11', """Files for testing have this name""")
+tf.app.flags.DEFINE_string('test_files', 'HCC2', """Files for testing have this name""")
 tf.app.flags.DEFINE_integer('box_dims', 76, """dimensions of the input pictures""")
 tf.app.flags.DEFINE_integer('network_dims', 64, """the dimensions fed into the network""")
 
 #
-tf.app.flags.DEFINE_integer('epoch_size', 53, """How many images were loaded""")
+tf.app.flags.DEFINE_integer('epoch_size', 180, """How many images were loaded""")
 tf.app.flags.DEFINE_integer('num_epochs', 900, """Number of epochs to run""")
 tf.app.flags.DEFINE_integer('print_interval', 5, """How often to print a summary to console during training""")
 tf.app.flags.DEFINE_integer('checkpoint_interval', 50, """How many Epochs to wait before saving a checkpoint""")
