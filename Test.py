@@ -146,21 +146,20 @@ def eval():
             # Otherwise check folder for changes
             filecheck = glob.glob(FLAGS.train_dir + FLAGS.RunInfo + '*')
             newfilec = filecheck
-            break
-            #
-            # # Sleep if no changes
-            # while filecheck == newfilec:
-            #
-            #     # Sleep an amount of time proportional to the epoch size
-            #     #time.sleep(60*120)
-            #
-            #     # Recheck the folder for changes
-            #     newfilec = glob.glob(FLAGS.train_dir + FLAGS.RunInfo + '*')
+
+            # Sleep if no changes
+            while filecheck == newfilec:
+
+                # Sleep an amount of time proportional to the epoch size
+                #time.sleep(60*120)
+
+                # Recheck the folder for changes
+                newfilec = glob.glob(FLAGS.train_dir + FLAGS.RunInfo + '*')
 
 
 
 def main(argv=None):  # pylint: disable=unused-argument
-    time.sleep(0)
+    time.sleep(60)
     if tf.gfile.Exists('testing/' + FLAGS.RunInfo):
         tf.gfile.DeleteRecursively('testing/' + FLAGS.RunInfo)
     tf.gfile.MakeDirs('testing/' + FLAGS.RunInfo)

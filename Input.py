@@ -2,24 +2,27 @@
 Does our loading and preprocessing of files to a protobuf
 """
 
-import glob, os
+import glob, time
 
 import numpy as np
 import tensorflow as tf
 import SODLoader as SDL
-import time
+import SOD_Display as Display
+import matplotlib.pyplot as plt
 
 from pathlib import Path
 from random import shuffle
-from sys import getsizeof
-from matplotlib import pyplot as plt
 
 # Define the flags class for variables
 FLAGS = tf.app.flags.FLAGS
 
 # Define the data directory to use
 home_dir = str(Path.home()) + '/PycharmProjects/Datasets/HCC/'
+
+# Utility classes
 sdl = SDL.SODLoader(data_root=home_dir)
+disp = Display.SOD_Display()
+
 
 def split_dict_equally(input_dict, chunks=2):
 
@@ -139,35 +142,39 @@ def pre_process(box_dims=76, chunks=3):
                 except: continue
 
                 # Normalize volume and create a box
-                volume = sdl.normalize_MRI_histogram(volume)
-                blob, cn, sizes, num_blobs = sdl.all_blobs(dic[phase+'_Seg'])
-                try:
-                    for z in range (1):
-
-                        # Generate the box. Save a double box for rotations later
-                        box, _ = sdl.generate_box(volume[cn[z][0]], (cn[z][1], cn[z][2]), box_dims*2, dim3d=False)
-
-                        # Save the data
-                        pt_data[phase] = box.astype(np.float32)
-                except:
-                    print ('Box saving failed for: ', patient, phase)
-
-            # Now work on saving the volume of the scan with channels
-            image_data = np.zeros(shape=(box_dims*2, box_dims*2, 4), dtype=np.float32)
-
-            # Set the channels as follows. If the phase doesnt exist, keep the channel as zero
-            try: image_data[: ,: , 0] = pt_data['AP']
-            except: pass
-            try: image_data[ :, :, 1] = pt_data['PV']
-            except: pass
-            try: image_data[ :, :, 2] = pt_data['DEL']
-            except: pass
-            try: image_data[ :, :, 3] = pt_data['HPB']
-            except: pass
-
-            # Save the data
-            data[index] = {'data': image_data, 'label': dic['Label'], 'pt': patient}
-            del volume, segments, image_data, box
+                segments, cn = sdl.largest_blob(segments)
+                print (cn)
+                disp.display_single_image(volume[cn[0]], False, patient)
+                disp.display_single_image(segments[cn[0]], False, phase)
+            #     volume = sdl.normalize_MRI_histogram(volume)
+            #     blob, cn, sizes, num_blobs = sdl.all_blobs(dic[phase+'_Seg'])
+            #     try:
+            #         for z in range (1):
+            #
+            #             # Generate the box. Save a double box for rotations later
+            #             box, _ = sdl.generate_box(volume[cn[z][0]], (cn[z][1], cn[z][2]), box_dims*2, dim3d=False)
+            #
+            #             # Save the data
+            #             pt_data[phase] = box.astype(np.float32)
+            #     except:
+            #         print ('Box saving failed for: ', patient, phase)
+            #
+            # # Now work on saving the volume of the scan with channels
+            # image_data = np.zeros(shape=(box_dims*2, box_dims*2, 4), dtype=np.float32)
+            #
+            # # Set the channels as follows. If the phase doesnt exist, keep the channel as zero
+            # try: image_data[: ,: , 0] = pt_data['AP']
+            # except: pass
+            # try: image_data[ :, :, 1] = pt_data['PV']
+            # except: pass
+            # try: image_data[ :, :, 2] = pt_data['DEL']
+            # except: pass
+            # try: image_data[ :, :, 3] = pt_data['HPB']
+            # except: pass
+            #
+            # # Save the data
+            # data[index] = {'data': image_data, 'label': dic['Label'], 'pt': patient}
+            # del volume, segments, image_data, box
 
             # Increment counter
             index += 1
@@ -175,16 +182,19 @@ def pre_process(box_dims=76, chunks=3):
 
             # Done with this patient
             pt += 1
-            if pt%5==0: print ('%s patients saved...' %pt)
+            if pt%5==0:
+                print ('%s patients saved...' %pt)
+                plt.show()
 
-        # Done with all patients
+        # Done with all patients in this chunk
         print ('Made %s boxes from %s patients. Class counts: %s' %(index, pt, counter))
+        plt.show()
 
-        # Save the data
-        sdl.save_tfrecords(data, 1, file_root=('data/HCC%s_4C_76' %(batch+1)))
-        if batch==0: sdl.save_dict_filetypes(data[0])
-        del data
-        data = {}
+        # # Save the data
+        # sdl.save_tfrecords(data, 1, file_root=('data/HCC%s_4C_76' %(batch+1)))
+        # if batch==0: sdl.save_dict_filetypes(data[0])
+        # del data
+        # data = {}
 
 
 def load_protobuf():
@@ -298,3 +308,5 @@ def load_validation_set():
     data['data'] = data['data'][:, :, 0]
 
     return sdl.val_batches(data, FLAGS.batch_size)
+
+pre_process()
