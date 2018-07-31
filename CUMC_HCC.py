@@ -125,7 +125,7 @@ def pre_process(chunks=2):
         # Create a unique patient ID (MRN). In this case it will be equal to the accession number as all HCCs ghere are unique
         pt_ID = 'HCC_' + str(patient)
 
-        data[index] = {'volume': volume.astype(np.float16), 'segments': segments.astype(np.uint8),
+        data[index] = {'volume': volume.astype(np.float16), 'segments': segments.astype(np.uint8), 'label': 'hcc',
                        'mrn': pt_ID, 'accession': pt_ID, 'sequence': sequence,'xy_spacing': str(isp[1]), 'z_spacing': str(isp[-1])}
 
         # Garbage
@@ -136,6 +136,6 @@ def pre_process(chunks=2):
     # Save the dictionary in x chunks
     print ('Loaded %s volumes fully.' %len(data))
     split_dicts = sdl.split_dict_equally(data, chunks)
-    for z in range (chunks): sdl.save_dict_pickle(split_dicts[z], ('data/intermediate%s' %(z+1)))
+    for z in range (chunks): sdl.save_dict_pickle(split_dicts[z], ('data/CUMC_HCC%s' %(z+1)))
 
 pre_process(2)
