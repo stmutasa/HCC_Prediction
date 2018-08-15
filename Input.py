@@ -75,7 +75,7 @@ def save_segments(box_dims=256, slice_gap=1):
         segments, seg_size = [p1_seg, p2_seg, p3_seg], np.asarray([np.sum(p1_seg), np.sum(p2_seg), np.sum(p3_seg)])
         largest_seg = np.argmax(seg_size)
         segment = np.squeeze(segments[largest_seg])
-        del p1_seg, p2_seg, p3_seg, segments
+        del p1_seg, p2_seg, p3_seg, segments, seg_size, largest_seg
 
         # Now we have the volume and the segments. Make a dictionary and save the files
         for z in range(volume.shape[0]):
@@ -111,9 +111,9 @@ def save_segments(box_dims=256, slice_gap=1):
 
         # Finished with all of this patients slices
         pt += 1
-        if pt % 21 ==0:
-            print('%s Patients this protobuf, %s slices saved' % (len(data), tracker))
-            sdl.save_tfrecords(data, xvals=1, file_root=('data/3DSegs_%s' %pt))
+        if pt % 10 == 0:
+            print('%s Patients this protobuf, %s slices saved' % (len(data.keys()), tracker))
+            sdl.save_tfrecords(data, xvals=1, file_root=(home_dir + ('Protobufs/3DSegs_%s' %pt)))
             if pt < 30: sdl.save_dict_filetypes(data[index - 1])
             tracker = 0
             del data
@@ -123,8 +123,8 @@ def save_segments(box_dims=256, slice_gap=1):
     # Finished with all patients
     print('%s Total Patients loaded, %s Total slices saved' % (pt, index))
     if len(data) > 0:
-        print('%s Patients this protobuf, %s slices saved' % (len(data), tracker))
-        sdl.save_tfrecords(data, xvals=1, file_root='data/3DSegs_Final')
+        print('%s Patients this protobuf, %s slices saved' % (len(data.keys()), tracker))
+        sdl.save_tfrecords(data, xvals=1, file_root=(home_dir + 'Protobufs/3DSegs_Final'))
 
     del data
 
@@ -219,7 +219,7 @@ def load_protobuf():
     """
 
     # Load all the filenames in glob
-    filenames1 = glob.glob('data/*.tfrecords')
+    filenames1 = glob.glob(home_dir + 'Protobufs/*.tfrecords')
     filenames = []
 
     # Define the filenames to remove
@@ -296,7 +296,7 @@ def load_validation_set():
     """
 
     # Use Glob here
-    filenames1 = glob.glob('data/*.tfrecords')
+    filenames1 = glob.glob(home_dir + 'Protobufs/*.tfrecords')
     filenames = []
 
     # Retreive only the right filename
@@ -322,5 +322,5 @@ def load_validation_set():
 
     return sdl.val_batches(data, FLAGS.batch_size)
 
-save_segments()
+# save_segments()
 # save_examples()
