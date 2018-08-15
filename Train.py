@@ -9,7 +9,7 @@ import time                                 # to retreive current time
 import numpy as np
 import tensorflow.contrib.slim as slim
 
-import HCC_Matrix as network
+import Model as network
 import tensorflow as tf
 
 _author_ = 'Simi'

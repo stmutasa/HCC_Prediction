@@ -2,7 +2,7 @@
 Does our loading and preprocessing of files to a protobuf
 """
 
-import glob, time
+import glob, os
 
 import numpy as np
 import tensorflow as tf
@@ -21,180 +21,184 @@ home_dir = str(Path.home()) + '/PycharmProjects/Datasets/HCC/'
 
 # Utility classes
 sdl = SDL.SODLoader(data_root=home_dir)
-disp = Display.SOD_Display()
+sdd = Display.SOD_Display()
 
 
-def split_dict_equally(input_dict, chunks=2):
-
-    """
-    Function that splits a dictionary into equal chunks
-    :param input_dict: input dictionary
-    :param chunks: number of chunks
-    :return: A list of dictionaries
-    """
-
-    # Create empty dictionaries list first
-    return_list = [dict() for idx in range(chunks)]
-    idx = 0
-
-    # Save into each listed dictionary one at a time
-    for k,v in input_dict.items():
-        return_list[idx][k] = v
-
-        # Loop back to beginning
-        if idx < chunks-1: idx += 1
-        else: idx = 0
-
-    return return_list
-
-
-def pre_process(box_dims=76, chunks=3):
+def save_segments(box_dims=256, slice_gap=1):
 
     """
-    Loads the files to a protobuf in two parts: 1. combine all phases for each pt, 2: save the boxes
+    Loads the files to a protobuf with saved 3 channel co-registered volumes and segmentations
     :param box_dims: dimensions of the saved images
-    :param chunks: number of chunks to save/load
+    :param slice_gap: The slice gap to use for 2.5 D
     :return:
     """
 
-    time.sleep(0)
-
     # Load the filenames and randomly shuffle them
-    filenames = sdl.retreive_filelist('nrrd', True, home_dir + 'segments/') + sdl.retreive_filelist('nrrd', True, home_dir + 'segments2/')
-    shuffle(filenames)
-    print (len(filenames), 'Base Files: ', filenames)
+    filenames = sdl.retreive_filelist('nii.gz', True, home_dir + 'HCC_registered/')
 
     # Load labels
     labels = sdl.load_CSV_Dict('PT', home_dir+'labels.csv')
-    print(len(labels), 'Labels: ', labels)
 
     # Global variables
-    display, counter, data, index, pt, pts_loaded, images, tracker = [], [0, 0], {}, 0, 0, [], {}, 0
-    size = 0
+    display, counter, data, pts_loaded, images = [], [0, 0], {}, [], {}
+    size, index, pt, tracker = 0, 0, 0, 0
 
-    # for file in filenames:
-    #
-    #     # Skip label files. will load later
-    #     if 'label' in file: continue
-    #     if '.seg.' in file: continue
-    #
-    #     # Retreive patient information
-    #     basename = os.path.basename(file).upper()
-    #     patient = basename.split(' ')[0]
-    #
-    #     if 'ART' in basename or 'AP' in basename or 'PH1' in basename: phase = 'AP'
-    #     elif 'PORT' in basename or 'PV' in basename or 'PH2' in basename: phase = 'PV'
-    #     elif 'DEL' in basename or 'PH3' in basename: phase = 'DEL'
-    #     elif 'HPB' in basename or 'PH4' in basename: phase = 'HPB'
-    #     else:
-    #         print ('Unable to retreive phase for: ', file, basename)
-    #         continue
-    #
-    #     try: label = int(labels[patient]['Label'])
-    #     except:
-    #         print ('Unable to load: ', file)
-    #         continue
-    #
-    #     # Load the image volumes and segmentations
-    #     try: _ = images[patient]
-    #     except: images[patient] = { 'AP': None, 'PV': None, 'DEL': None, 'HPB': None, 'Label': label, 'PT': patient,
-    #                                 'AP_Seg': None, 'PV_Seg': None, 'DEL_Seg': None, 'HPB_Seg': None}
-    #
-    #     # Load/normalize image then find/load the segmentations. Remember we're loading a 4 part tuple with size, origin and spacing
-    #     images[patient][phase], _, _, shape = sdl.load_nrrd_3D(file)
-    #     # images[patient][phase] = sdl.normalize_MRI_histogram(images[patient][phase], False, center_type='mean')
-    #     # print(images[patient][phase].dtype, images[patient][phase].nbytes)
-    #     for z in filenames:
-    #         if 'label' not in z: continue
-    #         if os.path.basename(z).upper().split(' ')[0] != patient: continue
-    #         if phase in z: images[patient][phase+'_Seg'] = sdl.load_nrrd_3D(z)[0]
-    #
-    #     tracker +=1
-    #     try: size += images[patient][phase+'_Seg'].nbytes+images[patient][phase].nbytes
-    #     except: print ('No segmentations! ', file)
-    #     if tracker %10 ==0:
-    #         print ('Processed %s volumes %s MB so far' %(tracker, size//1e6))
+    for file in filenames:
 
+        # Work only on the arterial phase
+        if 'P1' not in file: continue
 
-    # # Save the dictionary in 3 chunks
-    # print ('Loaded %s patients fully.' %len(images))
-    # split_dicts = split_dict_equally(images, chunks)
-    # for z in range (chunks): sdl.save_dict_pickle(split_dicts[z], ('data/intermediate%s' %(z+1)))
+        # Retreive the labels
+        basename = os.path.basename(file).split('.')[0]
+        sa = basename.split('_')
+        if len(sa) > 3: continue
+        reg_name, id_name, phase = sa[0], sa[1], sa[2]
+        hcc = int(labels[id_name]['Label'])
 
-    # Loop through all 3 files
-    for batch in range(chunks):
+        # Get the filenames
+        p2_file, p3_file = file[:-10] + '_P2Warped.nii.gz', file[:-10] + '_P3Warped.nii.gz'
+        seg_base = os.path.dirname(file) + '/' + reg_name[1:] + '_' + id_name + '_'
+        p1_lab = seg_base + 'P1_label.nii.gz'
+        p2_lab, p3_lab = seg_base + 'P2_label.nii.gz', seg_base + 'P3_label.nii.gz'
 
-        images = sdl.load_dict_pickle(('data/intermediate%s_pickle.p' %(batch+1)))
-        print('Loaded %s patients' % len(images))
+        # Now load all the volumes and segments
+        p1_vol, p1_seg = sdl.load_NIFTY(file), sdl.load_NIFTY(p1_lab)
+        p2_vol, p3_vol = sdl.load_NIFTY(p2_file), sdl.load_NIFTY(p3_file)
+        p2_seg, p3_seg = sdl.load_NIFTY(p2_lab), sdl.load_NIFTY(p3_lab)
 
-        for patient, dic in images.items():
+        # Join the volumes along channel dimensions and normalize
+        volumes = np.concatenate([p1_vol, p2_vol, p3_vol], axis=-1).astype(np.float32)
+        volume = sdl.normalize_MRI_histogram(volumes)
+        del p1_vol, p2_vol, p3_vol, volumes
 
-            # Patient global variables
-            pt_data = {'AP': None, 'PV': None, 'DEL': None, 'HPB': None}
+        # Use the largest segments for the network
+        segments, seg_size = [p1_seg, p2_seg, p3_seg], np.asarray([np.sum(p1_seg), np.sum(p2_seg), np.sum(p3_seg)])
+        largest_seg = np.argmax(seg_size)
+        segment = np.squeeze(segments[largest_seg])
+        del p1_seg, p2_seg, p3_seg, segments
 
-            # Now process the sequences for this patient
-            image_index = ['AP', 'PV', 'DEL', 'HPB']
-            for phase, volume in dic.items():
-                if phase not in image_index: continue
+        # Now we have the volume and the segments. Make a dictionary and save the files
+        for z in range(volume.shape[0]):
 
-                # Convert to numpy array
-                try: volume, segments = np.asarray(volume, np.int16), np.asarray(dic[phase+'_Seg'], np.int16)
-                except: continue
+            # Calculate a scaled slice shift
+            sz = slice_gap
 
-                # Normalize volume and create a box
-                segments, cn = sdl.largest_blob(segments)
-                print (cn)
-                disp.display_single_image(volume[cn[0]], False, patient)
-                disp.display_single_image(segments[cn[0]], False, phase)
-            #     volume = sdl.normalize_MRI_histogram(volume)
-            #     blob, cn, sizes, num_blobs = sdl.all_blobs(dic[phase+'_Seg'])
-            #     try:
-            #         for z in range (1):
-            #
-            #             # Generate the box. Save a double box for rotations later
-            #             box, _ = sdl.generate_box(volume[cn[z][0]], (cn[z][1], cn[z][2]), box_dims*2, dim3d=False)
-            #
-            #             # Save the data
-            #             pt_data[phase] = box.astype(np.float32)
-            #     except:
-            #         print ('Box saving failed for: ', patient, phase)
-            #
-            # # Now work on saving the volume of the scan with channels
-            # image_data = np.zeros(shape=(box_dims*2, box_dims*2, 4), dtype=np.float32)
-            #
-            # # Set the channels as follows. If the phase doesnt exist, keep the channel as zero
-            # try: image_data[: ,: , 0] = pt_data['AP']
-            # except: pass
-            # try: image_data[ :, :, 1] = pt_data['PV']
-            # except: pass
-            # try: image_data[ :, :, 2] = pt_data['DEL']
-            # except: pass
-            # try: image_data[ :, :, 3] = pt_data['HPB']
-            # except: pass
-            #
-            # # Save the data
-            # data[index] = {'data': image_data, 'label': dic['Label'], 'pt': patient}
-            # del volume, segments, image_data, box
+            # Skip very bottom and very top of image
+            if ((z - 3 * sz) < 0) or ((z + 3 * sz) > volume.shape[0]): continue
 
-            # Increment counter
+            # Label is easy, just save the slice
+            data_label = sdl.zoom_2D(segment, (box_dims, box_dims))
+
+            # Generate the empty data array
+            data_image = np.zeros(shape=[5, box_dims, box_dims], dtype=np.float32)
+
+            # Set starting point
+            zs = z - (2 * sz)
+
+            # Save 5 slices with shift Sz
+            for s in range(5): data_image[s, :, :] = sdl.zoom_2D(volume[zs + (s * sz)].astype(np.float32), [box_dims, box_dims])
+
+            # Save the dictionary:
+            data[index] = {'image_data': data_image.astype(np.float16), 'label_data': data_label.astype(np.uint8), 'accno': basename,
+                           'slice': z, 'mrn': id_name, 'shape_z': volume.shape[0], 'shape_xy': volume.shape[2], 'hcc': hcc}
+
+            # Finished with this slice
             index += 1
-            counter[dic['Label']] += 1
 
-            # Done with this patient
-            pt += 1
-            if pt%5==0:
-                print ('%s patients saved...' %pt)
-                plt.show()
+            # Garbage collection
+            del data_label, data_image
 
-        # Done with all patients in this chunk
-        print ('Made %s boxes from %s patients. Class counts: %s' %(index, pt, counter))
-        plt.show()
+        # Finished with all of this patients slices
+        pt += 1
+        if pt % 10 == 0: print('%s Patients loaded (%s slices)' %(pt, index))
 
-        # # Save the data
-        # sdl.save_tfrecords(data, 1, file_root=('data/HCC%s_4C_76' %(batch+1)))
-        # if batch==0: sdl.save_dict_filetypes(data[0])
-        # del data
-        # data = {}
+    # Finished with all patients
+    print('%s Total Patients loaded, %s Total slices saved' % (pt, index))
+    sdl.save_tfrecords(data, xvals=5, file_root='data/2.5D Segs')
+    sdl.save_dict_filetypes(data[index - 1])
+
+    del data
+
+
+def save_examples(box_dims=256, warps=1):
+
+    """
+    Loads the files to a protobuf of warped image examples
+    :param box_dims: dimensions of the saved images
+    :param warps: The number of affine warps to apply
+    :return:
+    """
+
+    # Load the filenames and randomly shuffle them
+    filenames = sdl.retreive_filelist('nii.gz', True, home_dir + 'HCC_registered/')
+
+    # Load labels
+    labels = sdl.load_CSV_Dict('PT', home_dir+'labels.csv')
+
+    # Global variables
+    display, counter, data, pts_loaded, images = [], [0, 0], {}, [], {}
+    size, index, pt, tracker = 0, 0, 0, 0
+
+    for file in filenames:
+
+        # Work only on the arterial phase
+        if 'P1' not in file: continue
+
+        # Retreive the labels
+        basename = os.path.basename(file).split('.')[0]
+        sa = basename.split('_')
+        if len(sa) > 3: continue
+        reg_name, id_name, phase = sa[0], sa[1], sa[2]
+        hcc = int(labels[id_name]['Label'])
+
+        # Get the filenames
+        p2_file, p3_file = file[:-10] + '_P2Warped.nii.gz', file[:-10] + '_P3Warped.nii.gz'
+        seg_base = os.path.dirname(file) + '/' + reg_name[1:] + '_' + id_name + '_'
+        p1_lab = seg_base + 'P1_label.nii.gz'
+        p2_lab, p3_lab = seg_base + 'P2_label.nii.gz', seg_base + 'P3_label.nii.gz'
+
+        # Now load all the volumes and segments
+        p1_vol, p1_seg = sdl.load_NIFTY(file), sdl.load_NIFTY(p1_lab)
+        p2_vol, p3_vol = sdl.load_NIFTY(p2_file), sdl.load_NIFTY(p3_file)
+        p2_seg, p3_seg = sdl.load_NIFTY(p2_lab), sdl.load_NIFTY(p3_lab)
+
+        # Join the volumes along channel dimensions and normalize
+        volumes = np.concatenate([p1_vol, p2_vol, p3_vol], axis=-1).astype(np.float32)
+        volume = sdl.normalize_MRI_histogram(volumes)
+        del p1_vol, p2_vol, p3_vol, volumes
+
+        # Use the largest segments for the network
+        segments, seg_size = [p1_seg, p2_seg, p3_seg], np.asarray([np.sum(p1_seg), np.sum(p2_seg), np.sum(p3_seg)])
+        largest_seg = np.argmax(seg_size)
+        segment = np.squeeze(segments[largest_seg])
+        del p1_seg, p2_seg, p3_seg, segments
+
+        # Find the center of all the blobs
+        _, centers, _, blob_count  = sdl.all_blobs(segment)
+
+        # Now we have the volume and the segments. Make a dictionary and save the files
+        for z in range(warps):
+
+            # Save the dictionary:
+            data[index] = {'image_data': data_image.astype(np.float16), 'label_data': data_label.astype(np.uint8), 'accno': basename,
+                           'slice': z, 'mrn': id_name, 'shape_z': volume.shape[0], 'shape_xy': volume.shape[2], 'hcc': hcc, 'warp':1}
+
+            # Finished with this slice
+            index += 1
+
+            # Garbage collection
+            del data_label, data_image
+
+        # Finished with all of this patients slices
+        pt += 1
+        if pt % 10 == 0: print('%s Patients loaded (%s slices)' %(pt, index))
+
+    # Finished with all patients
+    print('%s Total Patients loaded, %s Total slices saved' % (pt, index))
+    sdl.save_tfrecords(data, xvals=5, file_root='data/2.5D Segs')
+    sdl.save_dict_filetypes(data[index - 1])
+
+    del data
 
 
 def load_protobuf():
@@ -309,4 +313,5 @@ def load_validation_set():
 
     return sdl.val_batches(data, FLAGS.batch_size)
 
-pre_process()
+save_segments()
+# save_examples()

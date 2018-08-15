@@ -6,7 +6,7 @@ from __future__ import print_function  # use the print function from python 3
 
 import time, os, glob
 
-import HCC_Matrix as network
+import Model as network
 import numpy as np
 import tensorflow as tf
 import SODTester as SDT
