@@ -90,7 +90,7 @@ def save_segments(box_dims=256, slice_gap=1):
             data_label = sdl.zoom_2D(segment, (box_dims, box_dims))
 
             # Generate the empty data array
-            data_image = np.zeros(shape=[5, box_dims, box_dims], dtype=np.float32)
+            data_image = np.zeros(shape=[5, box_dims, box_dims, 3], dtype=np.float32)
 
             # Set starting point
             zs = z - (2 * sz)
@@ -104,18 +104,27 @@ def save_segments(box_dims=256, slice_gap=1):
 
             # Finished with this slice
             index += 1
+            tracker += 1
 
             # Garbage collection
             del data_label, data_image
 
         # Finished with all of this patients slices
         pt += 1
-        if pt % 10 == 0: print('%s Patients loaded (%s slices)' %(pt, index))
+        if pt % 21 ==0:
+            print('%s Patients this protobuf, %s slices saved' % (len(data), tracker))
+            sdl.save_tfrecords(data, xvals=1, file_root=('data/3DSegs_%s' %pt))
+            if pt < 30: sdl.save_dict_filetypes(data[index - 1])
+            tracker = 0
+            del data
+            data = {}
+
 
     # Finished with all patients
     print('%s Total Patients loaded, %s Total slices saved' % (pt, index))
-    sdl.save_tfrecords(data, xvals=5, file_root='data/2.5D Segs')
-    sdl.save_dict_filetypes(data[index - 1])
+    if len(data) > 0:
+        print('%s Patients this protobuf, %s slices saved' % (len(data), tracker))
+        sdl.save_tfrecords(data, xvals=1, file_root='data/3DSegs_Final')
 
     del data
 
