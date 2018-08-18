@@ -129,17 +129,18 @@ def save_segments(box_dims=256, slice_gap=1):
     del data
 
 
-def save_examples(box_dims=256, warps=1):
+def save_examples(box_dims=64, warps=20):
 
     """
-    Loads the files to a protobuf of warped image examples
+    Loads the files to a protobuf with saved affine warped volumes
     :param box_dims: dimensions of the saved images
-    :param warps: The number of affine warps to apply
+    :param warps: Number of affine warps to apply
     :return:
     """
 
     # Load the filenames and randomly shuffle them
     filenames = sdl.retreive_filelist('nii.gz', True, home_dir + 'HCC_registered/')
+    shuffle(filenames)
 
     # Load labels
     labels = sdl.load_CSV_Dict('PT', home_dir+'labels.csv')
@@ -180,33 +181,52 @@ def save_examples(box_dims=256, warps=1):
         segments, seg_size = [p1_seg, p2_seg, p3_seg], np.asarray([np.sum(p1_seg), np.sum(p2_seg), np.sum(p3_seg)])
         largest_seg = np.argmax(seg_size)
         segment = np.squeeze(segments[largest_seg])
-        del p1_seg, p2_seg, p3_seg, segments
+        del p1_seg, p2_seg, p3_seg, segments, seg_size, largest_seg
 
-        # Find the center of all the blobs
-        _, centers, _, blob_count  = sdl.all_blobs(segment)
+        # Now we have the volume and the segments.
 
-        # Now we have the volume and the segments. Make a dictionary and save the files
+        # Retreive the center of the segments and the "radius"
+        _, cn = sdl.largest_blob(segment)
+        radius = min([int(np.sum(segment) ** (1/3) * 2.5), box_dims * 2])
+
+        # Images holder for this patient
+        imgz = []
+
+        # Warped saves
         for z in range(warps):
 
-            # Save the dictionary:
-            data[index] = {'image_data': data_image.astype(np.float16), 'label_data': data_label.astype(np.uint8), 'accno': basename,
-                           'slice': z, 'mrn': id_name, 'shape_z': volume.shape[0], 'shape_xy': volume.shape[2], 'hcc': hcc, 'warp':1}
+            # Retreive the bounding boxes we will transform
+            xform, ctr = sdl.generate_box(volume, cn, box_dims*2, z_overwrite=box_dims*2)
+
+            # Now affine warp
+            xform, rot = sdl.fast_3d_affine(xform, ctr, [10, 30, 30])
+
+            # Now get the center box
+            box, ctr2 = sdl.generate_box(xform, ctr, box_dims, z_overwrite=box_dims)
+
+            # TODO: Testing
+            #sdd.display_single_image(box[box.shape[0]//2, :, :, 0], True, rot)
+            img = sdl.zoom_2D(box[box.shape[0]//2, :, :, 0], [64, 64])
+            display.append(img)
+
+            # # Save the dictionary:
+            # data[index] = {'image_data': data_image.astype(np.float16), 'label_data': data_label.astype(np.uint8), 'accno': basename,
+            #                'slice': z, 'mrn': id_name, 'shape_z': volume.shape[0], 'shape_xy': volume.shape[2], 'hcc': hcc}
 
             # Finished with this slice
             index += 1
 
             # Garbage collection
-            del data_label, data_image
+            del xform, box
 
-        # Finished with all of this patients slices
-        pt += 1
-        if pt % 10 == 0: print('%s Patients loaded (%s slices)' %(pt, index))
+        # Done with this patient
+        pt +=1
+        del segment, volume
 
-    # Finished with all patients
-    print('%s Total Patients loaded, %s Total slices saved' % (pt, index))
-    sdl.save_tfrecords(data, xvals=5, file_root='data/2.5D Segs')
-    sdl.save_dict_filetypes(data[index - 1])
-
+    # Done with all files
+    print (index)
+    display = np.asarray(display)
+    sdd.display_volume(display, True)
     del data
 
 
@@ -323,4 +343,4 @@ def load_validation_set():
     return sdl.val_batches(data, FLAGS.batch_size)
 
 # save_segments()
-# save_examples()
+save_examples(box_dims=32, warps=3)
