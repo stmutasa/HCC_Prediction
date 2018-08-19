@@ -35,11 +35,10 @@ def forward_pass(images, phase_train):
     """
 
     # Filter size of the first layer
-    K = 12
+    K = 8
 
     # First layer is conv
     print('Input Images: ', images)
-    images = tf.expand_dims(images, -1)
 
     # Residual blocks
     conv = sdn.convolution('Conv1', images, 3, K, 1, phase_train=phase_train)
@@ -73,11 +72,12 @@ def forward_pass(images, phase_train):
     return Logits, sdn.calc_L2_Loss(FLAGS.l2_gamma)
 
 
-def backward_pass(total_loss):
+def backward_pass(total_loss, clip_gradients=False):
 
     """
     This function performs our backward pass and updates our gradients
     :param total_loss:
+    :param clip_gradients: Clip gradients if requested
     :return:
     """
 
@@ -93,8 +93,8 @@ def backward_pass(total_loss):
     # Compute the gradients
     gradients = opt.compute_gradients(total_loss)
 
-    # Clilp the gradients
-    gradients = [(tf.clip_by_value(grad, -1., 1.), var) for grad, var in gradients]
+    # Clip the gradients
+    if clip_gradients: gradients = [(tf.clip_by_value(grad, -1., 1.), var) for grad, var in gradients]
 
     # Apply the gradients
     train_op = opt.apply_gradients(gradients, global_step, name='train')
@@ -122,7 +122,7 @@ def inputs(skip=False):
     """
 
     # To Do: Skip part 1 and 2 if the protobuff already exists
-    if not skip: Input.pre_process(FLAGS.box_dims)
+    if not skip: Input.save_examples(FLAGS.box_dims)
 
     print('----------------------------------------Loading Protobuff...')
     train = Input.load_protobuf()

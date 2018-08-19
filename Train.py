@@ -19,16 +19,16 @@ FLAGS = tf.app.flags.FLAGS
 
 # Define some of the immutable variables
 tf.app.flags.DEFINE_integer('num_classes', 2, """ Number of classes + 1 for background""")
-tf.app.flags.DEFINE_string('test_files', 'HCC2', """Files for testing have this name""")
-tf.app.flags.DEFINE_integer('box_dims', 76, """dimensions of the input pictures""")
+tf.app.flags.DEFINE_string('test_files', '1', """Files for testing have this name""")
+tf.app.flags.DEFINE_integer('box_dims', 64, """dimensions of the input pictures""")
 tf.app.flags.DEFINE_integer('network_dims', 64, """the dimensions fed into the network""")
 
 #
-tf.app.flags.DEFINE_integer('epoch_size', 180, """How many images were loaded""")
+tf.app.flags.DEFINE_integer('epoch_size', 420, """How many images were loaded""")
 tf.app.flags.DEFINE_integer('num_epochs', 900, """Number of epochs to run""")
 tf.app.flags.DEFINE_integer('print_interval', 5, """How often to print a summary to console during training""")
 tf.app.flags.DEFINE_integer('checkpoint_interval', 50, """How many Epochs to wait before saving a checkpoint""")
-tf.app.flags.DEFINE_integer('batch_size', 50, """Number of images to process in a batch.""")
+tf.app.flags.DEFINE_integer('batch_size', 70, """Number of images to process in a batch.""")
 
 # Regularizers
 tf.app.flags.DEFINE_float('dropout_factor', 0.75, """ Keep probability""")
@@ -42,8 +42,9 @@ tf.app.flags.DEFINE_float('beta2', 0.999, """ The beta 1 value for the adam opti
 
 # Directory control
 tf.app.flags.DEFINE_string('train_dir', 'training/', """Directory to write event logs and save checkpoint files""")
-tf.app.flags.DEFINE_string('RunInfo', 'Reloaded/', """Unique file name for this training run""")
+tf.app.flags.DEFINE_string('RunInfo', 'Run1/', """Unique file name for this training run""")
 tf.app.flags.DEFINE_integer('GPU', 0, """Which GPU to use""")
+tf.app.flags.DEFINE_integer('sleep_time', 0, """How long to wait before starting processing""")
 
 
 def train():
@@ -58,8 +59,8 @@ def train():
         phase_train = tf.placeholder(tf.bool)
 
         # Run the network depending on type
-        logits, l2loss = network.forward_pass(images['data'], phase_train=phase_train)
-        labels = images['label']
+        logits, l2loss = network.forward_pass(images['image_data'], phase_train=phase_train)
+        labels = images['hcc']
         SCE_loss = network.sdn.SCE_loss(logits, labels, FLAGS.num_classes)
 
         # Add in L2 Regularization
@@ -87,10 +88,11 @@ def train():
         saver = tf.train.Saver(var_restore, max_to_keep=10)
 
         # Set the intervals
-        max_steps = int((FLAGS.epoch_size / FLAGS.batch_size) * FLAGS.num_epochs)
-        print_interval = int((FLAGS.epoch_size / FLAGS.batch_size) * FLAGS.print_interval)
-        checkpoint_interval = int((FLAGS.epoch_size / FLAGS.batch_size) * FLAGS.checkpoint_interval)
+        max_steps = FLAGS.num_epochs * FLAGS.epoch_size // FLAGS.batch_size
+        print_interval = FLAGS.print_interval * FLAGS.epoch_size // FLAGS.batch_size
+        checkpoint_interval = FLAGS.checkpoint_interval * FLAGS.epoch_size // FLAGS.batch_size
         print('Max Steps: %s, Print Interval: %s, Checkpoint: %s' % (max_steps, print_interval, checkpoint_interval))
+        print('\nGPU: %s, File:%s' % (FLAGS.GPU, FLAGS.RunInfo[:-1]))
 
         # Allow memory placement growth
         config = tf.ConfigProto(log_device_placement=False, allow_soft_placement=True)
@@ -160,7 +162,7 @@ def train():
 
 
 def main(argv=None):  # pylint: disable=unused-argument
-    time.sleep(0)
+    time.sleep(FLAGS.sleep_time)
     if tf.gfile.Exists(FLAGS.train_dir + FLAGS.RunInfo):
         tf.gfile.DeleteRecursively(FLAGS.train_dir + FLAGS.RunInfo)
     tf.gfile.MakeDirs(FLAGS.train_dir + FLAGS.RunInfo)

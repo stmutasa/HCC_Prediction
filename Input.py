@@ -183,50 +183,42 @@ def save_examples(box_dims=64, warps=20):
         segment = np.squeeze(segments[largest_seg])
         del p1_seg, p2_seg, p3_seg, segments, seg_size, largest_seg
 
-        # Now we have the volume and the segments.
-
         # Retreive the center of the segments and the "radius"
         _, cn = sdl.largest_blob(segment)
         radius = min([int(np.sum(segment) ** (1/3) * 2.5), box_dims * 2])
+        del segment
 
-        # Images holder for this patient
-        imgz = []
+        # Generate the original box
+        box1, ctr2 = sdl.generate_box(volume, cn, box_dims*2, z_overwrite=box_dims*2)
+        del volume
 
-        # Warped saves
-        for z in range(warps):
+        # Generate 3 plane projections
+        imgz = sdl.zoom_2D(box1[box1.shape[0] // 2, :, :, :], [box_dims*2, box_dims*2])
+        imgy = sdl.zoom_2D(box1[:, box1.shape[1] // 2, :, :], [box_dims*2, box_dims*2])
+        imgx = sdl.zoom_2D(box1[:, :, box1.shape[2] // 2, :], [box_dims*2, box_dims*2])
 
-            # Retreive the bounding boxes we will transform
-            xform, ctr = sdl.generate_box(volume, cn, box_dims*2, z_overwrite=box_dims*2)
+        # Save the dictionaries:
+        data[index] = {'image_data': imgz.astype(np.float16), 'accno': basename, 'origin': 'orig_z', 'mrn': id_name, 'radius': radius, 'hcc': hcc}
+        index += 1
+        data[index] = {'image_data': imgy.astype(np.float16), 'accno': basename, 'origin': 'orig_y', 'mrn': id_name, 'radius': radius, 'hcc': hcc}
+        index += 1
+        data[index] = {'image_data': imgx.astype(np.float16), 'accno': basename, 'origin': 'orig_x', 'mrn': id_name, 'radius': radius, 'hcc': hcc}
+        index += 1
 
-            # Now affine warp
-            xform, rot = sdl.fast_3d_affine(xform, ctr, [10, 30, 30])
-
-            # Now get the center box
-            box, ctr2 = sdl.generate_box(xform, ctr, box_dims, z_overwrite=box_dims)
-
-            # TODO: Testing
-            #sdd.display_single_image(box[box.shape[0]//2, :, :, 0], True, rot)
-            img = sdl.zoom_2D(box[box.shape[0]//2, :, :, 0], [64, 64])
-            display.append(img)
-
-            # # Save the dictionary:
-            # data[index] = {'image_data': data_image.astype(np.float16), 'label_data': data_label.astype(np.uint8), 'accno': basename,
-            #                'slice': z, 'mrn': id_name, 'shape_z': volume.shape[0], 'shape_xy': volume.shape[2], 'hcc': hcc}
-
-            # Finished with this slice
-            index += 1
-
-            # Garbage collection
-            del xform, box
+        del box1, imgz, imgy, imgx
 
         # Done with this patient
         pt +=1
-        del segment, volume
+        counter [hcc] += 1
+        if pt % 21 == 0:
+            print (' %s of 105 saved... Classes this protobuf: HCC %s, Normal %s' %(pt, counter[1], counter[0]))
+            del counter
+            counter = [0, 0]
 
     # Done with all files
-    print (index)
-    display = np.asarray(display)
-    sdd.display_volume(display, True)
+    print ('%s Images generated from %s patients... Saving' %(index, pt))
+    sdl.save_tfrecords(data, 5, 'data/HCC_3c')
+    sdl.save_dict_filetypes(data[index-1])
     del data
 
 
@@ -238,8 +230,8 @@ def load_protobuf():
     :return:
     """
 
-    # Load all the filenames in glob
-    filenames1 = glob.glob(home_dir + 'Protobufs/*.tfrecords')
+    # Load all the files
+    filenames1 = sdl.retreive_filelist('tfrecords', False, path='data/')
     filenames = []
 
     # Define the filenames to remove
@@ -249,10 +241,10 @@ def load_protobuf():
     # Show the file names
     print('Training files: %s' % filenames)
 
-    # Load the dictionary
-    data = sdl.load_tfrecords(filenames, FLAGS.box_dims*2, tf.float32, channels=4)
+    # Now load the files
+    data = sdl.load_tfrecords(filenames, FLAGS.box_dims * 2, tf.float32, channels=3)
 
-    # Data Augmentation ------------------
+    # Data Augmentation ------------------ Contrast, brightness, noise, rotate, shear, crop, flip
 
     # Random contrast and brightness
     data['data'] = tf.image.random_brightness(data['data'], max_delta=2)
@@ -260,7 +252,7 @@ def load_protobuf():
 
     # Random gaussian noise
     T_noise = tf.random_uniform([1], 0, 0.1)
-    noise = tf.random_uniform(shape=[FLAGS.box_dims * 2, FLAGS.box_dims * 2, 4], minval=-T_noise, maxval=T_noise)
+    noise = tf.random_uniform(shape=[FLAGS.box_dims * 2, FLAGS.box_dims * 2, 1], minval=-T_noise, maxval=T_noise)
     data['data'] = tf.add(data['data'], tf.cast(noise, tf.float32))
 
     # Randomly rotate
@@ -269,7 +261,7 @@ def load_protobuf():
 
     # Random shear:
     rand = []
-    for z in range(4): rand.append(tf.random_uniform([], minval=-0.15, maxval=0.15, dtype=tf.float32))
+    for z in range(4): rand.append(tf.random_uniform([], minval=-0.05, maxval=0.05, dtype=tf.float32))
     data['data'] = tf.contrib.image.transform(data['data'], [1, rand[0], rand[1], rand[2], 1, rand[3], 0, 0])
 
     # Crop center
@@ -279,30 +271,21 @@ def load_protobuf():
     data['data'] = tf.image.random_flip_left_right(tf.image.random_flip_up_down(data['data']))
 
     # Random crop using a random resize
-    data['data'] = tf.random_crop(data['data'], [FLAGS.box_dims, FLAGS.box_dims, 4])
+    data['data'] = tf.random_crop(data['data'], [FLAGS.box_dims, FLAGS.box_dims, 3])
 
-    # Display the images
-    tf.summary.image('Train IMG', tf.reshape(data['data'][:, :, 0], shape=[1, FLAGS.box_dims, FLAGS.box_dims, 1]), 4)
+    # Data Augmentation ------------------
 
-    # Reshape image
-    data['data'] = tf.image.resize_images(data['data'], [FLAGS.network_dims, FLAGS.network_dims])
+    # Randomly dropout the other channels. 10% of the time for portal and 20% of the time for delayed phase
+    pvp = tf.cond(tf.squeeze(tf.random_uniform([1], 0, 1, dtype=tf.float32)) > 0.9,
+                                    lambda: tf.multiply(data['data'][:,:,1], 0), lambda:  tf.multiply(data['data'][:,:,1], 1))
+    dlp = tf.cond(tf.squeeze(tf.random_uniform([1], 0, 1, dtype=tf.float32)) > 0.8,
+                                    lambda: tf.multiply(data['data'][:, :, 2], 0), lambda:  tf.multiply(data['data'][:, :, 2], 1))
 
-    # # Randomly dropout the other channels
-    # pvp = tf.cond(tf.squeeze(tf.random_uniform([1], 0, 1, dtype=tf.float32)) > 0.5,
-    #                                 lambda: tf.multiply(data['data'][:,:,1], 0), lambda:  tf.multiply(data['data'][:,:,1], 1))
-    # dlp = tf.cond(tf.squeeze(tf.random_uniform([1], 0, 1, dtype=tf.float32)) > 0.6,
-    #                                 lambda: tf.multiply(data['data'][:, :, 2], 0), lambda:  tf.multiply(data['data'][:, :, 2], 1))
-    #
-    # # Concat the information
-    # data['data'] = tf.concat([tf.expand_dims(data['data'][:, :, 0], -1), tf.expand_dims(pvp, -1),
-    #                           tf.expand_dims(dlp, -1), tf.expand_dims(data['data'][:, :, 3], -1)], axis=-1)
+    # Concat the information
+    data['data'] = tf.concat([tf.expand_dims(data['data'][:, :, 0], -1), tf.expand_dims(pvp, -1), tf.expand_dims(dlp, -1)], axis=-1)
 
     # Display the images
     tf.summary.image('Train IMG', tf.reshape(data['data'][:,:,0], shape=[1, FLAGS.network_dims, FLAGS.network_dims, 1]), 4)
-
-    # For now, only use the arterial or PVP
-    data['data'] = tf.cond(tf.squeeze(tf.random_uniform([1], 0, 1, dtype=tf.float32)) > 0.5,
-                                     lambda: tf.multiply(data['data'][:,:,1], 1), lambda:  tf.multiply(data['data'][:,:,0], 1))
 
     # Return data dictionary
     return sdl.randomize_batches(data, FLAGS.batch_size)
@@ -315,32 +298,30 @@ def load_validation_set():
         :return:
     """
 
-    # Use Glob here
-    filenames1 = glob.glob(home_dir + 'Protobufs/*.tfrecords')
+    # Load all the files
+    filenames1 = sdl.retreive_filelist('tfrecords', False, path='data/')
     filenames = []
 
-    # Retreive only the right filename
+    # Define the filenames to remove
     for i in range(0, len(filenames1)):
         if FLAGS.test_files in filenames1[i]: filenames.append(filenames1[i])
 
+    # Show the file names
     print('Testing files: %s' % filenames)
 
-    # Load the dictionary
-    data = sdl.load_tfrecords(filenames, FLAGS.box_dims*2, tf.float32, channels=4)
+    # Now load the files
+    data = sdl.load_tfrecords(filenames, FLAGS.box_dims * 2, tf.float32, channels=3)
 
     # Crop center
     data['data'] = tf.image.central_crop(data['data'], 0.5)
 
     # Reshape image
-    data['data'] = tf.image.resize_images(data['data'], [FLAGS.network_dims, FLAGS.network_dims])
+    data['data'] = tf.image.resize_images(data['data'], [FLAGS.network_dims, FLAGS.network_dims, 3])
 
     # Display the images
     tf.summary.image('Test IMG', tf.reshape(data['data'][:,:,0], shape=[1, FLAGS.network_dims, FLAGS.network_dims, 1]), 4)
 
-    # For now, only use the arterial or PVP
-    data['data'] = data['data'][:, :, 0]
-
     return sdl.val_batches(data, FLAGS.batch_size)
 
 # save_segments()
-save_examples(box_dims=32, warps=3)
+# save_examples(box_dims=32, warps=3)

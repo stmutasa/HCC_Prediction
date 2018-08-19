@@ -12,8 +12,10 @@ import tensorflow as tf
 import SODTester as SDT
 import tensorflow.contrib.slim as slim
 import SODLoader as SDL
+import SOD_Display as SDD
 
 sdl = SDL.SODLoader(data_root='data/')
+sdd = SDD.SOD_Display()
 
 _author_ = 'Simi'
 
@@ -22,11 +24,11 @@ FLAGS = tf.app.flags.FLAGS
 
 # Define some of the immutable variables
 tf.app.flags.DEFINE_integer('num_classes', 2, """ Number of classes + 1 for background""")
-tf.app.flags.DEFINE_string('test_files', 'HCC2', """Files for testing have this name""")
-tf.app.flags.DEFINE_integer('box_dims', 76, """dimensions of the input pictures""")
+tf.app.flags.DEFINE_string('test_files', '1', """Files for testing have this name""")
+tf.app.flags.DEFINE_integer('box_dims', 64, """dimensions of the input pictures""")
 tf.app.flags.DEFINE_integer('network_dims', 64, """the dimensions fed into the network""")
-tf.app.flags.DEFINE_integer('epoch_size', 35, """How many images were loaded""")
-tf.app.flags.DEFINE_integer('batch_size', 7, """Number of images to process in a batch.""")
+tf.app.flags.DEFINE_integer('epoch_size', 105, """How many images were loaded""")
+tf.app.flags.DEFINE_integer('batch_size', 35, """Number of images to process in a batch.""")
 
 # Regularizers
 tf.app.flags.DEFINE_float('dropout_factor', 1.0, """ Keep probability""")
@@ -35,8 +37,9 @@ tf.app.flags.DEFINE_float('moving_avg_decay', 0.999, """ The decay rate for the 
 
 # Directory control
 tf.app.flags.DEFINE_string('train_dir', 'training/', """Directory to write event logs and save checkpoint files""")
-tf.app.flags.DEFINE_string('RunInfo', 'Reloaded/', """Unique file name for this training run""")
+tf.app.flags.DEFINE_string('RunInfo', 'Run1/', """Unique file name for this training run""")
 tf.app.flags.DEFINE_integer('GPU', 0, """Which GPU to use""")
+tf.app.flags.DEFINE_integer('sleep_time', 0, """How long to wait before starting processing""")
 
 
 # Define a custom training class
@@ -52,8 +55,8 @@ def eval():
         phase_train = tf.placeholder(tf.bool)
 
         # Build a graph that computes the prediction from the inference model (Forward pass)
-        logits, _ = network.forward_pass(valid['data'], phase_train=phase_train)
-        labels = valid['label']
+        logits, _ = network.forward_pass(valid['image_data'], phase_train=phase_train)
+        labels = valid['hcc']
 
         # Initialize variables operation
         var_init = tf.group(tf.global_variables_initializer(), tf.local_variables_initializer())
@@ -159,7 +162,7 @@ def eval():
 
 
 def main(argv=None):  # pylint: disable=unused-argument
-    time.sleep(60)
+    time.sleep(FLAGS.sleep_time)
     if tf.gfile.Exists('testing/' + FLAGS.RunInfo):
         tf.gfile.DeleteRecursively('testing/' + FLAGS.RunInfo)
     tf.gfile.MakeDirs('testing/' + FLAGS.RunInfo)
