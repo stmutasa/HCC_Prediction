@@ -16,7 +16,7 @@ sdt = SDT.SODTester(True, False)
 
 @ops.RegisterGradient("GuidedRelu")
 def _GuidedReluGrad(op, grad):
-    return tf.where(0. < grad, gen_nn_ops._relu_grad(grad, op.outputs[0]), tf.zeros_like(grad))
+    return tf.where(0. < grad, gen_nn_ops.relu_grad(grad, op.outputs[0]), tf.zeros_like(grad))
 
 _author_ = 'Simi'
 
@@ -24,12 +24,12 @@ _author_ = 'Simi'
 FLAGS = tf.app.flags.FLAGS
 
 # Group 1: 3796, Group 2 3893 (229)
-tf.app.flags.DEFINE_integer('epoch_size', 3893, """Test examples: OF: 508""")
-tf.app.flags.DEFINE_integer('batch_size', 40, """Number of images to process in a batch.""")
-tf.app.flags.DEFINE_integer('num_classes', 2, """ Number of classes""")
-tf.app.flags.DEFINE_string('test_files', 'G2', """Files for testing have this name""")
-tf.app.flags.DEFINE_integer('box_dims', 256, """dimensions of the input pictures""")
-tf.app.flags.DEFINE_integer('network_dims', 128, """the dimensions fed into the network""")
+tf.app.flags.DEFINE_integer('epoch_size', 105, """Test examples""")
+tf.app.flags.DEFINE_integer('batch_size', 35, """Number of images to process in a batch.""")
+tf.app.flags.DEFINE_integer('num_classes', 1, """ Number of classes""")
+tf.app.flags.DEFINE_string('test_files', '1', """Files for testing have this name""")
+tf.app.flags.DEFINE_integer('box_dims', 64, """dimensions of the input pictures""")
+tf.app.flags.DEFINE_integer('network_dims', 64, """the dimensions fed into the network""")
 
 # Hyperparameters:
 tf.app.flags.DEFINE_float('dropout_factor', 1.0, """ p value for the dropout layer""")
@@ -39,7 +39,7 @@ tf.app.flags.DEFINE_float('moving_avg_decay', 0.999, """ The decay rate for the 
 
 # Directory control
 tf.app.flags.DEFINE_string('train_dir', 'training/', """Directory to write event logs and save checkpoint files""")
-tf.app.flags.DEFINE_string('RunInfo', 'Base_Res/', """Unique file name for this training run""")
+tf.app.flags.DEFINE_string('RunInfo', 'Run1/', """Unique file name for this training run""")
 tf.app.flags.DEFINE_integer('GPU', 0, """Which GPU to use""")
 
 
@@ -57,8 +57,8 @@ def eval():
             phase_train = tf.placeholder(tf.bool)
 
             # To retreive labels
-            if FLAGS.num_classes ==2: labels = tf.one_hot(tf.cast(validation['label2'], tf.uint8), 2)
-            else: labels = tf.one_hot(tf.cast(validation['label'], tf.uint8), 2)
+            if FLAGS.num_classes ==2: labels = tf.one_hot(tf.cast(validation['label2'], tf.uint8), FLAGS.num_classes+1)
+            else: labels = tf.one_hot(tf.cast(validation['label'], tf.uint8), FLAGS.num_classes+1)
             images = validation['data']
 
             # Build a graph that computes the prediction from the inference model (Forward pass)
