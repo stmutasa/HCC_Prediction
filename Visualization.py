@@ -27,7 +27,7 @@ FLAGS = tf.app.flags.FLAGS
 tf.app.flags.DEFINE_integer('epoch_size', 105, """Test examples""")
 tf.app.flags.DEFINE_integer('batch_size', 35, """Number of images to process in a batch.""")
 tf.app.flags.DEFINE_integer('num_classes', 1, """ Number of classes""")
-tf.app.flags.DEFINE_string('test_files', '1', """Files for testing have this name""")
+tf.app.flags.DEFINE_string('test_files', '2', """Files for testing have this name""")
 tf.app.flags.DEFINE_integer('box_dims', 64, """dimensions of the input pictures""")
 tf.app.flags.DEFINE_integer('network_dims', 64, """the dimensions fed into the network""")
 

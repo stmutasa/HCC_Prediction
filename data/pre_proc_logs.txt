@@ -1,18 +1,8 @@
-Save files with
-52 Intermediate 2
-54 Intermediate 1 
-Unable to retreive phase for:  /home/stmutasa/PycharmProjects/Datasets/HCC/segments2/133 OD Ph1AXIAL axial.nrrd
-Unable to retreive phase for:  /home/stmutasa/PycharmProjects/Datasets/HCC/segments2/154 FA Ph1AXIAL axial.nrrd
+Classifier:
 
-75 is just a HPB
-
-Made 49 boxes from 49 patients. Class counts: [25, 24]
-Made 57 boxes from 57 patients. Class counts: [23, 34]
-
-Made 35 boxes from 35 patients. Class counts: [14, 21]
-
-Made 70 boxes from 70 patients. Class counts: [33, 37] [19, 16]
-
-Box saving failed for:  6 AP
-
-Made 105 boxes from 105 patients. Class counts: [48, 57] [15, 20]
+ 21 of 105 saved... Classes this protobuf: HCC 16, Normal 5
+ 42 of 105 saved... Classes this protobuf: HCC 10, Normal 11
+ 63 of 105 saved... Classes this protobuf: HCC 12, Normal 9
+ 84 of 105 saved... Classes this protobuf: HCC 10, Normal 11
+ 105 of 105 saved... Classes this protobuf: HCC 9, Normal 12
+315 Images generated from 105 patients... Saving

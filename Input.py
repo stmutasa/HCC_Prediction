@@ -146,8 +146,8 @@ def save_examples(box_dims=64, warps=20):
     labels = sdl.load_CSV_Dict('PT', home_dir+'labels.csv')
 
     # Global variables
-    display, counter, data, pts_loaded, images = [], [0, 0], {}, [], {}
-    size, index, pt, tracker = 0, 0, 0, 0
+    counter, data, counter2 = [0, 0], {}, [0, 0]
+    index, pt, tracker = 0, 0, 0
 
     for file in filenames:
 
@@ -198,11 +198,11 @@ def save_examples(box_dims=64, warps=20):
         imgx = sdl.zoom_2D(box1[:, :, box1.shape[2] // 2, :], [box_dims*2, box_dims*2])
 
         # Save the dictionaries:
-        data[index] = {'image_data': imgz.astype(np.float16), 'accno': basename, 'origin': 'orig_z', 'mrn': id_name, 'radius': radius, 'hcc': hcc}
+        data[index] = {'data': imgz.astype(np.float32), 'accno': basename, 'origin': 'orig_z', 'mrn': id_name, 'radius': radius, 'label': hcc}
         index += 1
-        data[index] = {'image_data': imgy.astype(np.float16), 'accno': basename, 'origin': 'orig_y', 'mrn': id_name, 'radius': radius, 'hcc': hcc}
+        data[index] = {'data': imgy.astype(np.float32), 'accno': basename, 'origin': 'orig_y', 'mrn': id_name, 'radius': radius, 'label': hcc}
         index += 1
-        data[index] = {'image_data': imgx.astype(np.float16), 'accno': basename, 'origin': 'orig_x', 'mrn': id_name, 'radius': radius, 'hcc': hcc}
+        data[index] = {'data': imgx.astype(np.float32), 'accno': basename, 'origin': 'orig_x', 'mrn': id_name, 'radius': radius, 'label': hcc}
         index += 1
 
         del box1, imgz, imgy, imgx
@@ -210,15 +210,17 @@ def save_examples(box_dims=64, warps=20):
         # Done with this patient
         pt +=1
         counter [hcc] += 1
+        counter2[hcc] += 1
         if pt % 21 == 0:
             print (' %s of 105 saved... Classes this protobuf: HCC %s, Normal %s' %(pt, counter[1], counter[0]))
+            sdl.save_tfrecords(data, 1, file_root=('data/HCC_Class_%s' % pt//21))
+            if pt < 23: sdl.save_dict_filetypes(data[index-1])
             del counter
             counter = [0, 0]
 
     # Done with all files
-    print ('%s Images generated from %s patients... Saving' %(index, pt))
-    sdl.save_tfrecords(data, 5, 'data/HCC_3c')
-    sdl.save_dict_filetypes(data[index-1])
+    print ('%s Images generated from %s patients, %s HCC, %s Other ... Saving stragglers' %(index, pt, counter2[1], counter2[0]))
+    if len(data) > 0: sdl.save_tfrecords(data, 1, file_root='data/HCC_Class_Final')
     del data
 
 
@@ -275,6 +277,9 @@ def load_protobuf():
 
     # Data Augmentation ------------------
 
+    # Reshape image
+    data['data'] = tf.image.resize_images(data['data'], [FLAGS.network_dims, FLAGS.network_dims])
+
     # Randomly dropout the other channels. 10% of the time for portal and 20% of the time for delayed phase
     pvp = tf.cond(tf.squeeze(tf.random_uniform([1], 0, 1, dtype=tf.float32)) > 0.9,
                                     lambda: tf.multiply(data['data'][:,:,1], 0), lambda:  tf.multiply(data['data'][:,:,1], 1))
@@ -316,7 +321,7 @@ def load_validation_set():
     data['data'] = tf.image.central_crop(data['data'], 0.5)
 
     # Reshape image
-    data['data'] = tf.image.resize_images(data['data'], [FLAGS.network_dims, FLAGS.network_dims, 3])
+    data['data'] = tf.image.resize_images(data['data'], [FLAGS.network_dims, FLAGS.network_dims])
 
     # Display the images
     tf.summary.image('Test IMG', tf.reshape(data['data'][:,:,0], shape=[1, FLAGS.network_dims, FLAGS.network_dims, 1]), 4)

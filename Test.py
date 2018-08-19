@@ -24,11 +24,11 @@ FLAGS = tf.app.flags.FLAGS
 
 # Define some of the immutable variables
 tf.app.flags.DEFINE_integer('num_classes', 2, """ Number of classes + 1 for background""")
-tf.app.flags.DEFINE_string('test_files', '1', """Files for testing have this name""")
+tf.app.flags.DEFINE_string('test_files', '2', """Files for testing have this name""")
 tf.app.flags.DEFINE_integer('box_dims', 64, """dimensions of the input pictures""")
 tf.app.flags.DEFINE_integer('network_dims', 64, """the dimensions fed into the network""")
-tf.app.flags.DEFINE_integer('epoch_size', 105, """How many images were loaded""")
-tf.app.flags.DEFINE_integer('batch_size', 35, """Number of images to process in a batch.""")
+tf.app.flags.DEFINE_integer('epoch_size', 63, """How many images were loaded""")
+tf.app.flags.DEFINE_integer('batch_size', 21, """Number of images to process in a batch.""")
 
 # Regularizers
 tf.app.flags.DEFINE_float('dropout_factor', 1.0, """ Keep probability""")
@@ -55,8 +55,8 @@ def eval():
         phase_train = tf.placeholder(tf.bool)
 
         # Build a graph that computes the prediction from the inference model (Forward pass)
-        logits, _ = network.forward_pass(valid['image_data'], phase_train=phase_train)
-        labels = valid['hcc']
+        logits, _ = network.forward_pass(valid['data'], phase_train=phase_train)
+        labels = valid['label']
 
         # Initialize variables operation
         var_init = tf.group(tf.global_variables_initializer(), tf.local_variables_initializer())
@@ -109,21 +109,25 @@ def eval():
                     for i in range(max_steps):
 
                         # Also retreive the predictions and labels
-                        preds, labs = sess.run([logits, labels], feed_dict={phase_train: False})
+                        preds, labs, unq, all = sess.run([logits, labels, valid['mrn'], valid], feed_dict={phase_train: False})
 
                         # Convert to numpy arrays
-                        predictions, label = preds.astype(np.float32), np.squeeze(labs.astype(np.float32))
+                        predictions, label, unique = preds.astype(np.float32), np.squeeze(labs.astype(np.float32)), np.squeeze(unq)
 
                         # If first step then create the tracking
                         if i == 0:
                             label_track = np.copy(label)
                             logit_track = np.copy(predictions)
+                            unique_track = np.copy(unique)
                         else:
                             label_track = np.concatenate((label_track, label))
                             logit_track = np.concatenate((logit_track, predictions))
+                            unique_track = np.concatenate((unique_track, unique))
 
                     # Print errors
-                    print (logit_track.shape, label_track.shape)
+                    print (logit_track.shape, label_track.shape, end='')
+                    _, label_track, logit_track = sdt.combine_predictions(label_track, logit_track, unique_track, FLAGS.batch_size)
+                    print(logit_track.shape, label_track.shape)
                     sdt.calculate_metrics(np.asarray(logit_track), np.asarray(label_track), 1, max_steps)
                     sdt.retreive_metrics_classification(Epoch)
 

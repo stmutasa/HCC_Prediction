@@ -18,13 +18,13 @@ _author_ = 'Simi'
 FLAGS = tf.app.flags.FLAGS
 
 # Define some of the immutable variables
-tf.app.flags.DEFINE_integer('num_classes', 2, """ Number of classes + 1 for background""")
-tf.app.flags.DEFINE_string('test_files', '1', """Files for testing have this name""")
+tf.app.flags.DEFINE_integer('num_classes', 2, """ Number of classes""")
+tf.app.flags.DEFINE_string('test_files', '2', """Files for testing have this name""")
 tf.app.flags.DEFINE_integer('box_dims', 64, """dimensions of the input pictures""")
 tf.app.flags.DEFINE_integer('network_dims', 64, """the dimensions fed into the network""")
 
 #
-tf.app.flags.DEFINE_integer('epoch_size', 420, """How many images were loaded""")
+tf.app.flags.DEFINE_integer('epoch_size', 252, """How many images were loaded""")
 tf.app.flags.DEFINE_integer('num_epochs', 900, """Number of epochs to run""")
 tf.app.flags.DEFINE_integer('print_interval', 5, """How often to print a summary to console during training""")
 tf.app.flags.DEFINE_integer('checkpoint_interval', 50, """How many Epochs to wait before saving a checkpoint""")
@@ -53,14 +53,14 @@ def train():
     with tf.Graph().as_default(), tf.device('/gpu:' + str(FLAGS.GPU)):
 
         # Get a dictionary of our images, id's, and labels here. Use the CPU
-        with tf.device('/cpu:0'): images, _ = network.inputs(skip=True)
+        with tf.device('/cpu:0'): images, _ = network.inputs(skip=False)
 
         # Define phase of training
         phase_train = tf.placeholder(tf.bool)
 
         # Run the network depending on type
-        logits, l2loss = network.forward_pass(images['image_data'], phase_train=phase_train)
-        labels = images['hcc']
+        logits, l2loss = network.forward_pass(images['data'], phase_train=phase_train)
+        labels = images['label']
         SCE_loss = network.sdn.SCE_loss(logits, labels, FLAGS.num_classes)
 
         # Add in L2 Regularization
