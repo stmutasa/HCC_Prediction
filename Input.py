@@ -2,13 +2,12 @@
 Does our loading and preprocessing of files to a protobuf
 """
 
-import glob, os
+import os
 
 import numpy as np
 import tensorflow as tf
 import SODLoader as SDL
 import SOD_Display as Display
-import matplotlib.pyplot as plt
 
 from pathlib import Path
 from random import shuffle
@@ -213,7 +212,7 @@ def save_examples(box_dims=64, warps=20):
         counter2[hcc] += 1
         if pt % 21 == 0:
             print (' %s of 105 saved... Classes this protobuf: HCC %s, Normal %s' %(pt, counter[1], counter[0]))
-            sdl.save_tfrecords(data, 1, file_root=('data/HCC_Class_%s' % pt//21))
+            sdl.save_tfrecords(data, 1, file_root=('data/HCC_Class_%s' % int(pt/21)))
             if pt < 23: sdl.save_dict_filetypes(data[index-1])
             del counter
             counter = [0, 0]
@@ -261,10 +260,10 @@ def load_protobuf():
     angle = tf.random_uniform([1], -0.45, 0.45)
     data['data'] = tf.contrib.image.rotate(data['data'], angle)
 
-    # Random shear:
-    rand = []
-    for z in range(4): rand.append(tf.random_uniform([], minval=-0.05, maxval=0.05, dtype=tf.float32))
-    data['data'] = tf.contrib.image.transform(data['data'], [1, rand[0], rand[1], rand[2], 1, rand[3], 0, 0])
+    # # Random shear:
+    # rand = []
+    # for z in range(4): rand.append(tf.random_uniform([], minval=-0.05, maxval=0.05, dtype=tf.float32))
+    # data['data'] = tf.contrib.image.transform(data['data'], [1, rand[0], rand[1], rand[2], 1, rand[3], 0, 0])
 
     # Crop center
     data['data'] = tf.image.central_crop(data['data'], 0.55)

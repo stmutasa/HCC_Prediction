@@ -24,7 +24,7 @@ FLAGS = tf.app.flags.FLAGS
 
 # Define some of the immutable variables
 tf.app.flags.DEFINE_integer('num_classes', 2, """ Number of classes + 1 for background""")
-tf.app.flags.DEFINE_string('test_files', '2', """Files for testing have this name""")
+tf.app.flags.DEFINE_string('test_files', 'Final', """Files for testing have this name""")
 tf.app.flags.DEFINE_integer('box_dims', 64, """dimensions of the input pictures""")
 tf.app.flags.DEFINE_integer('network_dims', 64, """the dimensions fed into the network""")
 tf.app.flags.DEFINE_integer('epoch_size', 63, """How many images were loaded""")
@@ -68,7 +68,7 @@ def eval():
         var_restore = var_ema.variables_to_restore()
 
         # Initialize the saver
-        saver = tf.train.Saver(var_restore, max_to_keep=3)
+        saver = tf.train.Saver(var_restore, max_to_keep=2)
 
         # Trackers for best performers
         best_MAE, best_epoch = 0, 0
@@ -112,7 +112,7 @@ def eval():
                         preds, labs, unq, all = sess.run([logits, labels, valid['mrn'], valid], feed_dict={phase_train: False})
 
                         # Convert to numpy arrays
-                        predictions, label, unique = preds.astype(np.float32), np.squeeze(labs.astype(np.float32)), np.squeeze(unq)
+                        predictions, label, unique = preds.astype(np.float32), np.squeeze(labs.astype(np.float32)), np.squeeze(unq).astype('U13')
 
                         # If first step then create the tracking
                         if i == 0:
@@ -124,10 +124,8 @@ def eval():
                             logit_track = np.concatenate((logit_track, predictions))
                             unique_track = np.concatenate((unique_track, unique))
 
-                    # Print errors
-                    print (logit_track.shape, label_track.shape, end='')
-                    _, label_track, logit_track = sdt.combine_predictions(label_track, logit_track, unique_track, FLAGS.batch_size)
-                    print(logit_track.shape, label_track.shape)
+                    # Retereive metrics
+                    information, label_track, logit_track = sdt.combine_predictions(label_track, logit_track, unique_track, FLAGS.epoch_size)
                     sdt.calculate_metrics(np.asarray(logit_track), np.asarray(label_track), 1, max_steps)
                     sdt.retreive_metrics_classification(Epoch)
 
@@ -137,14 +135,13 @@ def eval():
                         # Save the checkpoint
                         print(" ---------------- SAVING THIS ONE %s", ckpt.model_checkpoint_path)
 
-                        # Define the filename
-                        file = ('Epoch_%s_AUC_%0.3f' % (Epoch, sdt.AUC))
-
                         # Define the checkpoint file:
-                        checkpoint_file = os.path.join('testing/' + FLAGS.RunInfo, file)
+                        checkpoint_file = os.path.join('testing/' + FLAGS.RunInfo, ('Epoch_%s_AUC_%0.3f' % (Epoch, sdt.AUC)))
+                        csv_file = os.path.join('testing/' + FLAGS.RunInfo, ('Epoch_%s_AUC_%0.3f.csv' % (Epoch, sdt.AUC)))
 
                         # Save the checkpoint
                         saver.save(sess, checkpoint_file)
+                        sdl.save_Dict_CSV(information, csv_file)
 
                         # Save a new best MAE
                         best_MAE = sdt.AUC*100

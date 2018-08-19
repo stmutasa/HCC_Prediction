@@ -19,7 +19,7 @@ FLAGS = tf.app.flags.FLAGS
 
 # Define some of the immutable variables
 tf.app.flags.DEFINE_integer('num_classes', 2, """ Number of classes""")
-tf.app.flags.DEFINE_string('test_files', '2', """Files for testing have this name""")
+tf.app.flags.DEFINE_string('test_files', 'Final', """Files for testing have this name""")
 tf.app.flags.DEFINE_integer('box_dims', 64, """dimensions of the input pictures""")
 tf.app.flags.DEFINE_integer('network_dims', 64, """the dimensions fed into the network""")
 
@@ -53,7 +53,7 @@ def train():
     with tf.Graph().as_default(), tf.device('/gpu:' + str(FLAGS.GPU)):
 
         # Get a dictionary of our images, id's, and labels here. Use the CPU
-        with tf.device('/cpu:0'): images, _ = network.inputs(skip=False)
+        with tf.device('/cpu:0'): images, _ = network.inputs(skip=True)
 
         # Define phase of training
         phase_train = tf.placeholder(tf.bool)
