@@ -24,7 +24,7 @@ FLAGS = tf.app.flags.FLAGS
 
 # Define some of the immutable variables
 tf.app.flags.DEFINE_integer('num_classes', 2, """ Number of classes + 1 for background""")
-tf.app.flags.DEFINE_string('test_files', 'Final', """Files for testing have this name""")
+tf.app.flags.DEFINE_string('test_files', '4', """Files for testing have this name""")
 tf.app.flags.DEFINE_integer('box_dims', 64, """dimensions of the input pictures""")
 tf.app.flags.DEFINE_integer('network_dims', 64, """the dimensions fed into the network""")
 tf.app.flags.DEFINE_integer('epoch_size', 63, """How many images were loaded""")
@@ -37,9 +37,9 @@ tf.app.flags.DEFINE_float('moving_avg_decay', 0.999, """ The decay rate for the 
 
 # Directory control
 tf.app.flags.DEFINE_string('train_dir', 'training/', """Directory to write event logs and save checkpoint files""")
-tf.app.flags.DEFINE_string('RunInfo', 'Run1/', """Unique file name for this training run""")
+tf.app.flags.DEFINE_string('RunInfo', 'Run3_Val4/', """Unique file name for this training run""")
 tf.app.flags.DEFINE_integer('GPU', 0, """Which GPU to use""")
-tf.app.flags.DEFINE_integer('sleep_time', 0, """How long to wait before starting processing""")
+tf.app.flags.DEFINE_integer('sleep_time', 200, """How long to wait before starting processing""")
 
 
 # Define a custom training class
@@ -124,6 +124,9 @@ def eval():
                             logit_track = np.concatenate((logit_track, predictions))
                             unique_track = np.concatenate((unique_track, unique))
 
+                        # Garbage disposal
+                        del preds, labs, unq, all
+
                     # Retereive metrics
                     information, label_track, logit_track = sdt.combine_predictions(label_track, logit_track, unique_track, FLAGS.epoch_size)
                     sdt.calculate_metrics(np.asarray(logit_track), np.asarray(label_track), 1, max_steps)
@@ -137,7 +140,7 @@ def eval():
 
                         # Define the checkpoint file:
                         checkpoint_file = os.path.join('testing/' + FLAGS.RunInfo, ('Epoch_%s_AUC_%0.3f' % (Epoch, sdt.AUC)))
-                        csv_file = os.path.join('testing/' + FLAGS.RunInfo, ('Epoch_%s_AUC_%0.3f.csv' % (Epoch, sdt.AUC)))
+                        csv_file = os.path.join('testing/' + FLAGS.RunInfo, ('%s_E_%s_AUC_%0.2f.csv' % (FLAGS.RunInfo[:-1], Epoch, sdt.AUC)))
 
                         # Save the checkpoint
                         saver.save(sess, checkpoint_file)
@@ -146,6 +149,9 @@ def eval():
                         # Save a new best MAE
                         best_MAE = sdt.AUC*100
                         best_epoch = Epoch
+
+            # Garbage collection
+            del sess, restorer, label_track, logit_track, unique_track,
 
             # Otherwise check folder for changes
             filecheck = glob.glob(FLAGS.train_dir + FLAGS.RunInfo + '*')

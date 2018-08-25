@@ -1,9 +1,8 @@
 Classifier:
 
  21 of 105 saved... Classes this protobuf: HCC 12, Normal 9
- 42 of 105 saved... Classes this protobuf: HCC 14, Normal 7
- 63 of 105 saved... Classes this protobuf: HCC 13, Normal 8
- 84 of 105 saved... Classes this protobuf: HCC 9, Normal 12
- 105 of 105 saved... Classes this protobuf: HCC 9, Normal 12
-
-315 Images generated from 105 patients, 57 HCC, 48 Other ... Saving stragglers
+ 42 of 105 saved... Classes this protobuf: HCC 11, Normal 10
+ 63 of 105 saved... Classes this protobuf: HCC 15, Normal 6
+ 84 of 105 saved... Classes this protobuf: HCC 8, Normal 13
+ 105 of 105 saved... Classes this protobuf: HCC 11, Normal 10
+315 Images generated from 105 patients, 57 HCC, 48 Other ...

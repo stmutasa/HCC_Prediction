@@ -19,13 +19,13 @@ FLAGS = tf.app.flags.FLAGS
 
 # Define some of the immutable variables
 tf.app.flags.DEFINE_integer('num_classes', 2, """ Number of classes""")
-tf.app.flags.DEFINE_string('test_files', 'Final', """Files for testing have this name""")
+tf.app.flags.DEFINE_string('test_files', '4', """Files for testing have this name""")
 tf.app.flags.DEFINE_integer('box_dims', 64, """dimensions of the input pictures""")
 tf.app.flags.DEFINE_integer('network_dims', 64, """the dimensions fed into the network""")
 
 #
 tf.app.flags.DEFINE_integer('epoch_size', 252, """How many images were loaded""")
-tf.app.flags.DEFINE_integer('num_epochs', 900, """Number of epochs to run""")
+tf.app.flags.DEFINE_integer('num_epochs', 1500, """Number of epochs to run""")
 tf.app.flags.DEFINE_integer('print_interval', 5, """How often to print a summary to console during training""")
 tf.app.flags.DEFINE_integer('checkpoint_interval', 50, """How many Epochs to wait before saving a checkpoint""")
 tf.app.flags.DEFINE_integer('batch_size', 70, """Number of images to process in a batch.""")
@@ -42,7 +42,7 @@ tf.app.flags.DEFINE_float('beta2', 0.999, """ The beta 1 value for the adam opti
 
 # Directory control
 tf.app.flags.DEFINE_string('train_dir', 'training/', """Directory to write event logs and save checkpoint files""")
-tf.app.flags.DEFINE_string('RunInfo', 'Run1/', """Unique file name for this training run""")
+tf.app.flags.DEFINE_string('RunInfo', 'Run3_Val4', """Unique file name for this training run""")
 tf.app.flags.DEFINE_integer('GPU', 0, """Which GPU to use""")
 tf.app.flags.DEFINE_integer('sleep_time', 0, """How long to wait before starting processing""")
 
@@ -145,7 +145,7 @@ def train():
                         summary_writer.add_summary(summary, i)
 
 
-                    if i % checkpoint_interval == 0:
+                    if i % checkpoint_interval == 0 and Epoch > 101:
 
                         print('-' * 70, '\nSaving... GPU: %s, File:%s' % (FLAGS.GPU, FLAGS.RunInfo[:-1]))
 
@@ -158,7 +158,7 @@ def train():
                         # Save the checkpoint
                         saver.save(sess, checkpoint_file)
 
-                        time.sleep(0)
+                        time.sleep(60)
 
 
 def main(argv=None):  # pylint: disable=unused-argument

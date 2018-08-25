@@ -214,11 +214,11 @@ def save_examples(box_dims=64, warps=20):
             print (' %s of 105 saved... Classes this protobuf: HCC %s, Normal %s' %(pt, counter[1], counter[0]))
             sdl.save_tfrecords(data, 1, file_root=('data/HCC_Class_%s' % int(pt/21)))
             if pt < 23: sdl.save_dict_filetypes(data[index-1])
-            del counter
-            counter = [0, 0]
+            del counter, data
+            counter, data = [0, 0], {}
 
     # Done with all files
-    print ('%s Images generated from %s patients, %s HCC, %s Other ... Saving stragglers' %(index, pt, counter2[1], counter2[0]))
+    print ('%s Images generated from %s patients, %s HCC, %s Other ... Saving stragglers %s' %(index, pt, counter2[1], counter2[0], counter))
     if len(data) > 0: sdl.save_tfrecords(data, 1, file_root='data/HCC_Class_Final')
     del data
 
@@ -328,4 +328,4 @@ def load_validation_set():
     return sdl.val_batches(data, FLAGS.batch_size)
 
 # save_segments()
-# save_examples(box_dims=32, warps=3)
+# save_examples(box_dims=64, warps=3)
