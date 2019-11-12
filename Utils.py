@@ -314,5 +314,76 @@ def make_gifs():
         index +=1
         del volume_norm, volume
 
+
+def make_gifs_old_data():
+
+    """
+    Takes the input nifti files and saves .gif files of the volumes. This version is for the old, pre annotated cases
+    We want to use the annotated names
+    NOTE: reshuffle produced different patient IDs!!
+    """
+
+    # First define the filenames
+    series_list = sdl.retreive_filelist('nii.gz', path=home_dir+'Processed2/', include_subfolders=True)
+    annotations = sdl.retreive_filelist('jpg', path=home_dir+'Post-Annotated/', include_subfolders=True)
+    seizures = sdl.retreive_filelist('gif', path=home_dir + 'Seizures/', include_subfolders=True)
+    seizures = [x for x in seizures if 'INT_' in x]
+    print (seizures)
+
+    # Start from scratch
+    if tf.io.gfile.exists('Gifs/'): tf.gfile.DeleteRecursively('Gifs')
+    tf.io.gfile.mkdir('Gifs/')
+
+    # Vars
+    index = 0
+
+    # Loop through the patients
+    for file in series_list:
+
+        # MRN and Time are unique to each patient:
+        # index_MRN_Series_Time.nii.gz
+        id = os.path.basename(file).split('_')[0] + '_'
+        mrn = os.path.basename(file).split('_')[1]
+        time = os.path.basename(file).split('_')[-1].split('.nii.gz')[0]
+        prefix, series = 'RAW_', file.split('_')[-2]
+
+        # Retreive this patients annotated name if available
+        # Annotations are index_MRN_time_label
+        for ann in annotations:
+            if mrn in ann and time in ann:
+                prefix, series = 'ANN_', ann.split('_')[-1].split('.jpg')[0]
+                break
+
+        # Retreive this patients INT status if done
+        # Annotations are index_MRN_series_time
+        for sez in seizures:
+            if mrn in sez and time in sez:
+                prefix = 'INT_'
+                break
+
+        # Save file as: Prefix_ID_MRN_Series_Time
+        # Prefix = INT if interleaved, ANN if previously annotated, RAW if not previously annotated
+        save_file = 'Gifs/' + prefix + id + mrn + '_' + series + '_' + time + '.gif'
+        print (save_file, os.path.basename(file))
+
+        # Load the volume
+        volume = np.squeeze(sdl.load_NIFTY(file))
+
+        # Swapaxes for some reason
+        volume = np.swapaxes(volume, 1, 2)
+
+        # Normalize
+        volume_norm = np.zeros_like(volume, dtype=np.uint8)
+        for z in range (volume.shape[0]):
+            volume_norm[z] = cv2.normalize(volume[z], dst=volume_norm[z], alpha=0, beta=255, norm_type=cv2.NORM_MINMAX)
+
+        # Save the .gif set FPS to volume depended
+        fps = volume_norm.shape[0] //4
+        gif(save_file, volume_norm, fps=fps, scale=1.0)
+
+        index +=1
+        del volume_norm, volume
+
 #display_warps(56, 20)
-make_gifs()
+#make_gifs()
+make_gifs_old_data()
