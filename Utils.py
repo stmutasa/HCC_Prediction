@@ -384,6 +384,155 @@ def make_gifs_old_data():
         index +=1
         del volume_norm, volume
 
+
+def save_accessions():
+
+    """
+    Save a list of accession numbers
+    :return:
+    """
+
+    # First define the filenames
+    series_list = sdl.retreive_filelist('nii.gz', path=home_dir + 'Processed2/', include_subfolders=True)
+
+    # Vars
+    index, list, data = 0, [], {}
+
+    # Retreive the filename
+    save_file = 'data/patient_list.csv'
+
+    # Loop through the patients
+    for file in series_list:
+
+        # Only do problem cases
+        pt = int(os.path.basename(file).split('_')[0])
+        acc = int(os.path.basename(file).split('_')[1])
+
+        if acc in list: continue
+
+        list.append(acc)
+        data[pt] = acc
+
+    sdl.save_Dict_CSV(data, save_file)
+
+
+def make_gifs_again():
+
+    """
+    Takes the input nifti files and saves .gif files of the volumes. This version uses the ones annotated before
+    discovery of the SAM glitch
+    """
+
+    """
+    Series list contains the original preprocessed files
+    rechecks contains the originally annotated GIFS
+    redownloads list contains the files lina retreived
+
+    Load redownloads and save all those, if annotated use annotation
+    Load series_list and get timestamp and accession
+    if the file accession is in the dicom folder from lina, (generate list of these beforehand) use that instead
+    if set filename equivalent to what was done before in the rechecks
+    order filename as ID_ANN_ACC_SERIES DESC_TIME
+    """
+
+    # First retreive lists of the the filenames
+    series_list = sdl.retreive_filelist('nii.gz', path=home_dir+'Processed2/', include_subfolders=True)
+    rechecks = sdl.retreive_filelist('gif', True, path=home_dir+'Rechecks')
+    redownloads = list()
+    for (dirpath, dirnames, filenames) in os.walk(home_dir+'DICOM/'):
+        redownloads += [os.path.join(dirpath, dir) for dir in dirnames]
+    redownloads = [x for x in redownloads if 'OBJ_0' in x]
+
+    # Start from scratch, delete the folder
+    if tf.io.gfile.exists('Gifs/'): tf.gfile.DeleteRecursively('Gifs')
+    tf.io.gfile.mkdir('Gifs/')
+
+    # Vars
+    index = 0
+
+    # Loop through and generate accession list of redownloads
+    re_accnos = ['4315499', '3384278', '3408296', '3604840', '3928391', '4934558', '3920797', '3635146', '4253405',
+                 '4265735', '4390034', '3440998', '3514539', '4016397', '3439696', '3961248', '4250322', '4221344',
+                 '6044067', '3820833', '3452961', '3401206', '4029113', '3838525', '3560271', '4264491', '3734178', '3329640']
+    for file in redownloads:
+
+        # Try and load the volume, don't load non dicoms
+        try: volume, header = sdl.load_DICOM_3D(file, return_header=True)
+        except: continue
+
+        # Retreive the tags we want
+        Series = header['tags'].SeriesDescription
+        Accno = header['tags'].AccessionNumber
+        Time = header['tags'].AcquisitionTime
+        Prefix = 'RAW'
+
+        # Get the index of the file, 68 + patient number
+        ID = int(file.split('/')[-4].split('_')[1]) + 68
+
+        # If used in annotation, use that annotation
+        for check in rechecks:
+            if Accno in check and Time in check:
+                if 'INT' in check:
+                    Prefix = 'INT_' + check.split('/')[-1].split('_')[1]
+                    Series = check.split('/')[-1].split('_')[4]
+                else:
+                    Prefix = check.split('/')[-1].split('_')[0]
+                    Series = check.split('/')[-1].split('_')[3]
+                break
+
+        # Remove '/' from series name to prevent saving errors
+        new_Series = Series.replace('/', ' ')
+        new_Series, Series = Series, new_Series
+
+        # Save the gif, first define filename: ID_ANN_ACC_SERIES DESC_TIME
+        savefile = 'Gifs/' + str(ID) + '_' + Prefix + '_' + Accno + '_' + Series + '_' + Time
+        print('Patient: %s, Series: %s - %s, File: %s' % (Accno, Series, Time, savefile))
+        sdl.save_gif_volume(volume, savefile)
+
+        index += 1
+        del volume
+
+
+    # Loop through the patients
+    for file in series_list:
+
+        # MRN and Time are unique to each patient
+        # 3_4979417_AX VIBE PRE_111725.605000
+        base = os.path.basename(file)
+        ID = base.split('_')[0] + '_'
+        Accno = base.split('_')[1]
+        Time = base.split('_')[-1].split('.')[0]
+        Prefix, Series = 'RAW' , file.split('_')[-2]
+        should_pass = None
+
+        # If this is one of the redownloaded files by accession, skip everything past here
+        for check in re_accnos:
+            if Accno in check:
+                should_pass = 1
+
+        if should_pass: continue
+
+        # if set filename equivalent to what was done before in the rechecks, use that
+        for check in rechecks:
+            if Accno in check and Time in check:
+                if 'INT' in check:
+                    Prefix = 'INT_' + check.split('/')[-1].split('_')[1]
+                    Series = check.split('/')[-1].split('_')[4]
+                else:
+                    Prefix = check.split('/')[-1].split('_')[0]
+                    Series = check.split('/')[-1].split('_')[3]
+                break
+
+        # Save the gif, first define filename: ID_ANN_ACC_SERIES DESC_TIME
+        savefile = 'Gifs/' + str(ID) + '_' + Prefix + '_' + Accno + '_' + Series + '_' + Time
+        print('Patient: %s, Series: %s - %s, File: %s' % (Accno, Series, Time, savefile))
+        sdl.save_gif_volume(volume, savefile)
+
+        index += 1
+        del volume
+
+
 #display_warps(56, 20)
 #make_gifs()
-make_gifs_old_data()
+#make_gifs_old_data()
+make_gifs_again()
