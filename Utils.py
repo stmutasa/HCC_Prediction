@@ -454,43 +454,43 @@ def make_gifs_again():
     re_accnos = ['4315499', '3384278', '3408296', '3604840', '3928391', '4934558', '3920797', '3635146', '4253405',
                  '4265735', '4390034', '3440998', '3514539', '4016397', '3439696', '3961248', '4250322', '4221344',
                  '6044067', '3820833', '3452961', '3401206', '4029113', '3838525', '3560271', '4264491', '3734178', '3329640']
-    for file in redownloads:
-
-        # Try and load the volume, don't load non dicoms
-        try: volume, header = sdl.load_DICOM_3D(file, return_header=True)
-        except: continue
-
-        # Retreive the tags we want
-        Series = header['tags'].SeriesDescription
-        Accno = header['tags'].AccessionNumber
-        Time = header['tags'].AcquisitionTime
-        Prefix = 'RAW'
-
-        # Get the index of the file, 68 + patient number
-        ID = int(file.split('/')[-4].split('_')[1]) + 68
-
-        # If used in annotation, use that annotation
-        for check in rechecks:
-            if Accno in check and Time in check:
-                if 'INT' in check:
-                    Prefix = 'INT_' + check.split('/')[-1].split('_')[1]
-                    Series = check.split('/')[-1].split('_')[4]
-                else:
-                    Prefix = check.split('/')[-1].split('_')[0]
-                    Series = check.split('/')[-1].split('_')[3]
-                break
-
-        # Remove '/' from series name to prevent saving errors
-        new_Series = Series.replace('/', ' ')
-        new_Series, Series = Series, new_Series
-
-        # Save the gif, first define filename: ID_ANN_ACC_SERIES DESC_TIME
-        savefile = 'Gifs/' + str(ID) + '_' + Prefix + '_' + Accno + '_' + Series + '_' + Time
-        print('Patient: %s, Series: %s - %s, File: %s' % (Accno, Series, Time, savefile))
-        sdl.save_gif_volume(volume, savefile)
-
-        index += 1
-        del volume
+    # for file in redownloads:
+    #
+    #     # Try and load the volume, don't load non dicoms
+    #     try: volume, header = sdl.load_DICOM_3D(file, return_header=True)
+    #     except: continue
+    #
+    #     # Retreive the tags we want
+    #     Series = header['tags'].SeriesDescription
+    #     Accno = header['tags'].AccessionNumber
+    #     Time = header['tags'].AcquisitionTime
+    #     Prefix = 'RAW'
+    #
+    #     # Get the index of the file, 68 + patient number
+    #     ID = int(file.split('/')[-4].split('_')[1]) + 68
+    #
+    #     # If used in annotation, use that annotation
+    #     for check in rechecks:
+    #         if Accno in check and Time in check:
+    #             if 'INT' in check:
+    #                 Prefix = 'INT_' + check.split('/')[-1].split('_')[1]
+    #                 Series = check.split('/')[-1].split('_')[4]
+    #             else:
+    #                 Prefix = check.split('/')[-1].split('_')[0]
+    #                 Series = check.split('/')[-1].split('_')[3]
+    #             break
+    #
+    #     # Remove '/' from series name to prevent saving errors
+    #     new_Series = Series.replace('/', ' ')
+    #     new_Series, Series = Series, new_Series
+    #
+    #     # Save the gif, first define filename: ID_ANN_ACC_SERIES DESC_TIME
+    #     savefile = 'Gifs/' + str(ID) + '_' + Prefix + '_' + Accno + '_' + Series + '_' + Time
+    #     print('Patient: %s, Series: %s - %s, File: %s' % (Accno, Series, Time, savefile))
+    #     sdl.save_gif_volume(volume, savefile)
+    #
+    #     index += 1
+    #     del volume
 
 
     # Loop through the patients
@@ -523,6 +523,11 @@ def make_gifs_again():
                     Series = check.split('/')[-1].split('_')[3]
                 break
 
+        # Load the volume
+        volume = np.squeeze(sdl.load_NIFTY(file))
+        # Swapaxes for nifti files
+        volume = np.swapaxes(volume, 1, 2)
+
         # Save the gif, first define filename: ID_ANN_ACC_SERIES DESC_TIME
         savefile = 'Gifs/' + str(ID) + '_' + Prefix + '_' + Accno + '_' + Series + '_' + Time
         print('Patient: %s, Series: %s - %s, File: %s' % (Accno, Series, Time, savefile))
@@ -532,7 +537,106 @@ def make_gifs_again():
         del volume
 
 
+def separate_DICOMs():
+
+    """
+    Helper function to separate interleaved DICOMs
+    :return:
+    """
+
+    # First retreive lists of the the filenames
+    interleaved = sdl.retreive_filelist('gif', path=home_dir+'Recheck 2/', include_subfolders=True)
+    interleaved = [x for x in interleaved if '_INT_' in x]
+    shuffle(interleaved)
+    redownloads = list()
+    for (dirpath, dirnames, filenames) in os.walk(home_dir + 'DICOM/'):
+        redownloads += [os.path.join(dirpath, dir) for dir in dirnames]
+    redownloads = [x for x in redownloads if 'OBJ_0' in x]
+    shuffle (redownloads)
+
+    # Load the redownloads and filter them
+    for folder in redownloads:
+
+        # First just load the headers to save time
+        header = sdl.load_DICOM_Header(folder, multiple=True)
+        try:
+            Series = header['tags'].SeriesDescription
+            Accno = header['tags'].AccessionNumber
+            Study = header['tags'].StudyDescription
+            Time = header['tags'].AcquisitionTime
+        except: continue
+
+        # Check header info with the labeled gifs
+        study = [x for x in interleaved if Accno in x.split('_')[-3] and Time in x.split('_')[-1].replace('.gif', '')]
+        if not study: continue
+
+        # Now load the full study
+        fnames = list()
+        for (dirpath, dirnames, filenames) in os.walk(folder):
+            fnames += [os.path.join(dirpath, file) for file in filenames]
+        ndimage = [dicom.read_file(path, force=True) for path in fnames]
+
+        """
+         TODO: Sort the slices
+         In and out of phase can be sorted by EchoTime
+         They can be sorted by SliceLocation (check for duplicates)
+         InstanceNumber doesn't work for in and out of phase (TE does)
+        """
+
+        # Make list with slice location and check how many repeated positions there are
+        sort_list = np.asarray([x.SliceLocation for x in ndimage], np.int16)
+        unique, counts = np.unique(sort_list, return_counts=True)
+        repeats = np.max(counts)
+
+        # Sort the images by ImagePositionPatient
+        ndimage, _, _, _, _, _ = sdl.sort_dcm(ndimage, fnames)
+        ndimage.sort(key=lambda x: int(x.ImagePositionPatient[2]))
+
+        # Loop through the number of repeats and create that many volumes
+        for r in range(repeats):
+
+            # Create array with every xx slice
+            slice_subset = []
+            for i in range(r, len(ndimage), repeats): slice_subset.append(ndimage[i])
+
+            # Make the image actually equal to the pixel data and not the header
+            try: image = np.stack([sdl.read_dcm_uncompressed(s) for s in slice_subset])
+            except:
+                print ('Cant load: ', study[0])
+                continue
+            image = sdl.compress_bits(image)
+            image = image.astype(np.int16)
+
+            # Convert to Houndsfield units
+            if hasattr(slice_subset[0], 'RescaleIntercept') and hasattr(slice_subset[0], 'RescaleSlope'):
+                for slice_number in range(len(slice_subset)):
+                    intercept = slice_subset[slice_number].RescaleIntercept
+                    slope = slice_subset[slice_number].RescaleSlope
+
+                    image[slice_number] = slope * image[slice_number].astype(np.float64)
+                    image[slice_number] = image[slice_number].astype('int16')
+                    image[slice_number] += np.int16(intercept)
+
+            # Now image has our volume
+            volume = np.asarray(image)
+
+            # Get savefile name
+            save_gif = study[0].replace('_INT', ('-%s' %r))
+            save_gif = save_gif.replace('Recheck 2', 'INT_Fixed')
+            save_vol = save_gif.replace('.gif', '.nii.gz')
+
+            # Save the gif and volume
+            print ('Saving: ', os.path.basename(save_vol))
+            sdl.save_volume(volume, save_vol, compress=True)
+            sdl.save_gif_volume(volume, save_gif)
+
+        #     # TODO:
+        #     sdd.display_volume(volume)
+        # plt.show()
+
+
 #display_warps(56, 20)
 #make_gifs()
 #make_gifs_old_data()
-make_gifs_again()
+#make_gifs_again()
+separate_DICOMs()
