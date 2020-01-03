@@ -635,8 +635,83 @@ def separate_DICOMs():
         # plt.show()
 
 
+def separate_DICOMs2():
+
+    """
+    Helper function to separate interleaved DICOMs
+    For the cornell DICOMS
+    :return:
+    """
+
+    # First retreive lists of the the filenames
+    interleaved = sdl.retreive_filelist('gif', path=home_dir+'Recheck 2/', include_subfolders=True)
+    interleaved = [x for x in interleaved if '_INT_' in x]
+    shuffle(interleaved)
+    cornell2 = sdl.retreive_filelist('nii.gz', True, home_dir+'Raw2_Processed/Siemens/')
+    shuffle (cornell2)
+    index = 1
+    accnos3 = []
+
+    # Load the redownloads and filter them
+    for file in cornell2:
+
+        # Get accno and time
+        base = os.path.basename(file)
+        Accno = base.split('_')[1]
+        Time = base.split('_')[-1].split('.')[0]
+
+        # Check header info with the labeled gifs
+        study = [x for x in interleaved if Accno in x.split('_')[-3] and Time in x.split('_')[-1].replace('.gif', '')]
+        if not study: continue
+
+        # Now load the full study
+        volume_int = sdl.load_NIFTY(file)
+
+        # Calculate the number of repeats for Siemens (Cornell) studies
+        # DWI's repeat 3 times or once, Subs are 2 (obv), dynamics are 3, in/out are 2
+        repeats = 2
+        if 'DYN X3' in base.upper() and 'SUB' not in base.upper(): repeats = 3
+        if 'DWI' in base.upper(): repeats = 3
+        if 'DWI' in base.upper() and volume_int.shape[0] <= 51 : repeats = 1
+
+        """
+         TODO: Sort the slices
+         In and out of phase can be sorted by EchoTime
+         They can be sorted by SliceLocation (check for duplicates)
+         InstanceNumber doesn't work for in and out of phase (TE does)
+        """
+
+        # Loop through the number of repeats and create that many volumes
+        for r in range(repeats):
+
+            # Create array with every xx slice
+            slice_subset = []
+            for i in range(r, volume_int.shape[0], repeats):
+                slice_subset.append(volume_int[i])
+
+            volume = np.asarray(slice_subset)
+
+            # Get savefile name
+            save_gif = study[0].replace('_INT', ('-%s' %r))
+            save_gif = save_gif.replace('Recheck 2', 'INT_Fixed/gif')
+            save_vol = save_gif.replace('.gif', '.nii.gz')
+            save_gif = save_gif.replace('gif/', 'vol/')
+
+            # Save the gif and volume
+            print ('Saving: ', os.path.basename(save_vol))
+            sdl.save_volume(volume, save_vol, compress=True)
+            sdl.save_gif_volume(volume, save_gif)
+
+            # TODO: Testing
+            # print(index, '-----', volume.shape, '->', volume_int.shape, '----', base)
+            sdd.display_volume(volume)
+        index +=1
+        #plt.show()
+    plt.show()
+
+
 #display_warps(56, 20)
 #make_gifs()
 #make_gifs_old_data()
 #make_gifs_again()
-separate_DICOMs()
+separate_DICOMs2()
