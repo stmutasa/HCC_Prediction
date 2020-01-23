@@ -540,99 +540,99 @@ def make_gifs_again():
 def separate_DICOMs():
 
     """
-        #     Helper function to separate interleaved DICOMs
-        #     :return:
-        #     """
-        #
-        #     # First retreive lists of the the filenames
-        #     interleaved = sdl.retreive_filelist('gif', path=home_dir+'Recheck 2/', include_subfolders=True)
-        #     interleaved = [x for x in interleaved if '_INT_' in x]
-        #     shuffle(interleaved)
-        #     redownloads = list()
-        #     for (dirpath, dirnames, filenames) in os.walk(home_dir + 'DICOM/'):
-        #         redownloads += [os.path.join(dirpath, dir) for dir in dirnames]
-        #     redownloads = [x for x in redownloads if 'OBJ_0' in x]
-        #     shuffle (redownloads)
-        #
-        #     # Load the redownloads and filter them
-        #     for folder in redownloads:
-        #
-        #         # First just load the headers to save time
-        #         header = sdl.load_DICOM_Header(folder, multiple=True)
-        #         try:
-        #             Series = header['tags'].SeriesDescription
-        #             Accno = header['tags'].AccessionNumber
-        #             Study = header['tags'].StudyDescription
-        #             Time = header['tags'].AcquisitionTime
-        #         except: continue
-        #
-        #         # Check header info with the labeled gifs
-        #         study = [x for x in interleaved if Accno in x.split('_')[-3] and Time in x.split('_')[-1].replace('.gif', '')]
-        #         if not study: continue
-        #
-        #         # Now load the full study
-        #         fnames = list()
-        #         for (dirpath, dirnames, filenames) in os.walk(folder):
-        #             fnames += [os.path.join(dirpath, file) for file in filenames]
-        #         ndimage = [dicom.read_file(path, force=True) for path in fnames]
-        #
-        #         """
-        #          TODO: Sort the slices
-        #          In and out of phase can be sorted by EchoTime
-        #          They can be sorted by SliceLocation (check for duplicates)
-        #          InstanceNumber doesn't work for in and out of phase (TE does)
-        #         """
-        #
-        #         # Make list with slice location and check how many repeated positions there are
-        #         sort_list = np.asarray([x.SliceLocation for x in ndimage], np.int16)
-        #         unique, counts = np.unique(sort_list, return_counts=True)
-        #         repeats = np.max(counts)
-        #
-        #         # Sort the images by ImagePositionPatient
-        #         ndimage, _, _, _, _, _ = sdl.sort_dcm(ndimage, fnames)
-        #         ndimage.sort(key=lambda x: int(x.ImagePositionPatient[2]))
-        #
-        #         # Loop through the number of repeats and create that many volumes
-        #         for r in range(repeats):
-        #
-        #             # Create array with every xx slice
-        #             slice_subset = []
-        #             for i in range(r, len(ndimage), repeats): slice_subset.append(ndimage[i])
-        #
-        #             # Make the image actually equal to the pixel data and not the header
-        #             try: image = np.stack([sdl.read_dcm_uncompressed(s) for s in slice_subset])
-        #             except:
-        #                 print ('Cant load: ', study[0])
-        #                 continue
-        #             image = sdl.compress_bits(image)
-        #             image = image.astype(np.int16)
-        #
-        #             # Convert to Houndsfield units
-        #             if hasattr(slice_subset[0], 'RescaleIntercept') and hasattr(slice_subset[0], 'RescaleSlope'):
-        #                 for slice_number in range(len(slice_subset)):
-        #                     intercept = slice_subset[slice_number].RescaleIntercept
-        #                     slope = slice_subset[slice_number].RescaleSlope
-        #
-        #                     image[slice_number] = slope * image[slice_number].astype(np.float64)
-        #                     image[slice_number] = image[slice_number].astype('int16')
-        #                     image[slice_number] += np.int16(intercept)
-        #
-        #             # Now image has our volume
-        #             volume = np.asarray(image)
-        #
-        #             # Get savefile name
-        #             save_gif = study[0].replace('_INT', ('-%s' %r))
-        #             save_gif = save_gif.replace('Recheck 2', 'INT_Fixed')
-        #             save_vol = save_gif.replace('.gif', '.nii.gz')
-        #
-        #             # Save the gif and volume
-        #             print ('Saving: ', os.path.basename(save_vol))
-        #             sdl.save_volume(volume, save_vol, compress=True)
-        #             sdl.save_gif_volume(volume, save_gif)
-        #
-        #         #     # TODO:
-        #         #     sdd.display_volume(volume)
-        #         # plt.show()
+            Helper function to separate interleaved DICOMs
+            :return:
+    """
+
+    # First retreive lists of the the filenames
+    interleaved = sdl.retreive_filelist('gif', path=home_dir+'Recheck 2/', include_subfolders=True)
+    interleaved = [x for x in interleaved if '_INT_' in x]
+    shuffle(interleaved)
+    redownloads = list()
+    for (dirpath, dirnames, filenames) in os.walk(home_dir + 'DICOM/'):
+        redownloads += [os.path.join(dirpath, dir) for dir in dirnames]
+    redownloads = [x for x in redownloads if 'OBJ_0' in x]
+    shuffle (redownloads)
+
+    # Load the redownloads and filter them
+    for folder in redownloads:
+
+        # First just load the headers to save time
+        header = sdl.load_DICOM_Header(folder, multiple=True)
+        try:
+            Series = header['tags'].SeriesDescription
+            Accno = header['tags'].AccessionNumber
+            Study = header['tags'].StudyDescription
+            Time = header['tags'].AcquisitionTime
+        except: continue
+
+        # Check header info with the labeled gifs
+        study = [x for x in interleaved if Accno in x.split('_')[-3] and Time in x.split('_')[-1].replace('.gif', '')]
+        if not study: continue
+
+        # Now load the full study
+        fnames = list()
+        for (dirpath, dirnames, filenames) in os.walk(folder):
+            fnames += [os.path.join(dirpath, file) for file in filenames]
+        ndimage = [dicom.read_file(path, force=True) for path in fnames]
+
+        """
+         TODO: Sort the slices
+         In and out of phase can be sorted by EchoTime
+         They can be sorted by SliceLocation (check for duplicates)
+         InstanceNumber doesn't work for in and out of phase (TE does)
+        """
+
+        # Make list with slice location and check how many repeated positions there are
+        sort_list = np.asarray([x.SliceLocation for x in ndimage], np.int16)
+        unique, counts = np.unique(sort_list, return_counts=True)
+        repeats = np.max(counts)
+
+        # Sort the images by ImagePositionPatient
+        ndimage, _, _, _, _, _ = sdl.sort_dcm(ndimage, fnames)
+        ndimage.sort(key=lambda x: int(x.ImagePositionPatient[2]))
+
+        # Loop through the number of repeats and create that many volumes
+        for r in range(repeats):
+
+            # Create array with every xx slice
+            slice_subset = []
+            for i in range(r, len(ndimage), repeats): slice_subset.append(ndimage[i])
+
+            # Make the image actually equal to the pixel data and not the header
+            try: image = np.stack([sdl.read_dcm_uncompressed(s) for s in slice_subset])
+            except:
+                print ('Cant load: ', study[0])
+                continue
+            image = sdl.compress_bits(image)
+            image = image.astype(np.int16)
+
+            # Convert to Houndsfield units
+            if hasattr(slice_subset[0], 'RescaleIntercept') and hasattr(slice_subset[0], 'RescaleSlope'):
+                for slice_number in range(len(slice_subset)):
+                    intercept = slice_subset[slice_number].RescaleIntercept
+                    slope = slice_subset[slice_number].RescaleSlope
+
+                    image[slice_number] = slope * image[slice_number].astype(np.float64)
+                    image[slice_number] = image[slice_number].astype('int16')
+                    image[slice_number] += np.int16(intercept)
+
+            # Now image has our volume
+            volume = np.asarray(image)
+
+            # Get savefile name
+            save_gif = study[0].replace('_INT', ('-%s' %r))
+            save_gif = save_gif.replace('Recheck 2', 'INT_Fixed')
+            save_vol = save_gif.replace('.gif', '.nii.gz')
+
+            # Save the gif and volume
+            print ('Saving: ', os.path.basename(save_vol))
+            sdl.save_volume(volume, save_vol, compress=True)
+            sdl.save_gif_volume(volume, save_gif)
+
+        #     # TODO:
+        #     sdd.display_volume(volume)
+        # plt.show()
 
 
 def separate_DICOMs2():
@@ -646,14 +646,19 @@ def separate_DICOMs2():
     # First retreive lists of the the filenames
     interleaved = sdl.retreive_filelist('gif', path=home_dir+'Recheck 2/', include_subfolders=True)
     interleaved = [x for x in interleaved if '_INT_' in x]
-    shuffle(interleaved)
-    cornell2 = sdl.retreive_filelist('nii.gz', True, home_dir+'Raw2_Processed/Siemens/')
-    shuffle (cornell2)
+    #shuffle(interleaved)
+    GE = sdl.retreive_filelist('nii.gz', True, home_dir + 'Raw2_Processed/GE/')
+    SIEMENS = sdl.retreive_filelist('nii.gz', True, home_dir+'Raw2_Processed/Siemens/')
+    combined = GE + SIEMENS
+    #shuffle (SIEMENS)
     index = 1
     accnos3 = []
 
+    # The siobhan remaining problem cases
+    problems = ['67', '80', '52', '48', '37', '25']
+
     # Load the redownloads and filter them
-    for file in cornell2:
+    for file in GE:
 
         # Get accno and time
         base = os.path.basename(file)
@@ -673,6 +678,20 @@ def separate_DICOMs2():
         if 'DYN X3' in base.upper() and 'SUB' not in base.upper(): repeats = 3
         if 'DWI' in base.upper(): repeats = 3
         if 'DWI' in base.upper() and volume_int.shape[0] <= 51 : repeats = 1
+
+        # TODO: Only work on the siobhan problem cases now
+        check_id = os.path.basename(study[0]).split('_')[0]
+        if check_id not in problems: continue
+        check_base = os.path.basename(study[0]).upper()
+        if 'DWI' in check_base: continue
+
+        repeats = 2
+        if '4 PASSES' in check_base: repeats = 5
+        if 'ALL PHASES IN ONE' in check_base: repeats = 3
+        if 'DYN 3PH POST' in check_base: repeats = 3
+        if 'AX ART' in check_base: repeats = 3
+        if 'AX PRE_09' in check_base: repeats = 3
+        print ('Repeats: %s, Base: %s' %(repeats, check_base))
 
         """
          TODO: Sort the slices
@@ -698,15 +717,14 @@ def separate_DICOMs2():
             save_gif = save_gif.replace('gif/', 'vol/')
 
             # Save the gif and volume
-            print ('Saving: ', os.path.basename(save_vol))
+            print ('Saving: ', os.path.basename(save_vol), 'Repeats: ', repeats)
             sdl.save_volume(volume, save_vol, compress=True)
             sdl.save_gif_volume(volume, save_gif)
 
-            # TODO: Testing
-            # print(index, '-----', volume.shape, '->', volume_int.shape, '----', base)
-            sdd.display_volume(volume)
+        # TODO: Testing
+        print(index, '-----', volume.shape, '->', volume_int.shape, '----', base)
+        sdd.display_volume(volume)
         index +=1
-        #plt.show()
     plt.show()
 
 
