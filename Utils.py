@@ -10,6 +10,7 @@ from medpy.io import save as mpsave
 import matplotlib.pyplot as plt
 import imageio
 import cv2
+import datetime
 
 from pathlib import Path
 from random import shuffle
@@ -185,7 +186,7 @@ def sort_files():
                     print ('Patient: %s, Study: %s, Maker: %s, Series: %s - %s' %(Accno, Study, Maker, Series, Time))
 
                     # Filename
-                    savedir = (home_dir + 'Processed2/' + Maker +'/')
+                    savedir = (home_dir + 'Raw2_Processed/' + Maker +'/')
                     savefile = savedir + (str(ptc) + '_' + Accno + '_' + Series +'_'+ Time)+'.nii.gz'
 
                     if not os.path.exists(savedir): os.makedirs(savedir)
@@ -271,7 +272,7 @@ def make_gifs():
     """
 
     # First define the filenames
-    series_list = sdl.retreive_filelist('nii.gz', path=home_dir+'Processed2/', include_subfolders=True)
+    series_list = sdl.retreive_filelist('nii.gz', path=home_dir+'Raw2_Processed/', include_subfolders=True)
     shuffle(series_list)
 
     # Start from scratch
@@ -324,7 +325,7 @@ def make_gifs_old_data():
     """
 
     # First define the filenames
-    series_list = sdl.retreive_filelist('nii.gz', path=home_dir+'Processed2/', include_subfolders=True)
+    series_list = sdl.retreive_filelist('nii.gz', path=home_dir+'Raw2_Processed/', include_subfolders=True)
     annotations = sdl.retreive_filelist('jpg', path=home_dir+'Post-Annotated/', include_subfolders=True)
     seizures = sdl.retreive_filelist('gif', path=home_dir + 'Seizures/', include_subfolders=True)
     seizures = [x for x in seizures if 'INT_' in x]
@@ -728,8 +729,241 @@ def separate_DICOMs2():
     plt.show()
 
 
-#display_warps(56, 20)
-#make_gifs()
-#make_gifs_old_data()
-#make_gifs_again()
-separate_DICOMs2()
+"""
+THE FINAL COUNTDOWNNNN
+1. Save patient list linking CSV to MRN for both Lina redownloads and Original group
+2. Save Interleaved Volumes as Accno_TimeStamp_PHASE.nii.gz
+3. Save Lina Download Volumes
+4. Save All Others
+"""
+
+def make_MRN_Accno_List():
+
+    """
+    Make a csv list of Accno:MRN links for the original raw studies and Lina studies
+    :return:
+    """
+
+    save_dict = {}
+
+    # First define the filenames
+    patient_list = sdl.retreive_filelist('*', path=home_dir + 'Initial Raw/', include_subfolders=True)
+    ptc = 0
+
+    # Loop through the patients
+    for patient in patient_list:
+
+        # Patients again
+        patient_name = sdl.retreive_filelist('*', path=patient + '/', include_subfolders=True)
+
+        for pt in patient_name:
+
+            # Retreive the individual studies
+            study_list = sdl.retreive_filelist('*', path=pt + '/', include_subfolders=True)
+
+            # Loop through the studies
+            for study in study_list:
+
+                # Retreive the series
+                print('\n\n')
+                series_list = sdl.retreive_filelist('*', path=study + '/', include_subfolders=True)
+
+                # Retreive the MRN from the first image in that series
+                # Load the DICOM
+                try:
+                    header = sdl.load_DICOM_Header(series_list[0], True)
+                except: continue
+
+                # Retreive and save
+                Accno = header['tags'].AccessionNumber
+                MRN = header['tags'].PatientID
+                save_dict[Accno] = MRN
+
+    redownloads = list()
+    for (dirpath, dirnames, filenames) in os.walk(home_dir + 'DICOM/'):
+        redownloads += [os.path.join(dirpath, dir) for dir in dirnames]
+    redownloads = [x for x in redownloads if 'OBJ_0' in x]
+    Accno, MRN = '', ''
+
+    for file in redownloads:
+
+        # Try and load the volume, don't load non dicoms
+        try: header = sdl.load_DICOM_Header(file)
+        except: continue
+
+        # Retreive and save
+        Accno = header['tags'].AccessionNumber
+        MRN = header['tags'].PatientID
+        save_dict[Accno] = MRN
+
+    # Save the info
+    sdl.save_Dict_CSV(save_dict, 'Patient_Key.csv')
+
+
+def save_interleaved():
+
+    """
+    Save the annotated interleaved volumes into sachin2
+    I did this manually since there were only about 5.
+    Some had hepatobiliary phases that were not interleaved
+    :return:
+    """
+
+    pass
+
+
+def save_lina_downloads():
+
+    """
+    Save the stuff Lina had to redownload as nifti volumes
+    :return:
+    """
+
+    # First retreive lists of the the filenames
+    redownloads = list()
+    for (dirpath, dirnames, filenames) in os.walk(home_dir + 'DICOM/'):
+        redownloads += [os.path.join(dirpath, dir) for dir in dirnames]
+    redownloads = [x for x in redownloads if 'OBJ_0' in x]
+
+    # Vars
+    index = 0
+    save_dir = home_dir + 'Sachin2/'
+    Problem_cases = [3734178, 6044067]
+
+    # Create annotation dictionary with Accno_timestamp : Phase pairs
+    all_annotations = sdl.retreive_filelist('gif', True, home_dir + 'All_annnotations/')
+    ann_dict, fails = {}, []
+    for _ann in all_annotations:
+
+        # Retreive the information from the gif
+        ann = os.path.basename(_ann)
+        ann = ann.replace('__', '_')
+        acc = ann.split('_')[2]
+        time = ann.split('_')[-1].split('.')[0]
+        _phase = ann.split('_')[-2].upper()
+
+        # Set the correct phase
+        phase = ''
+        if 'ART' in _phase: phase = 'P1'
+        elif 'PV' in _phase: phase = 'P2'
+        elif 'DEL' in _phase: phase = 'P3'
+        elif 'HPB' in _phase: phase = 'P4'
+        elif 'HBP' in _phase: phase = 'P4'
+        elif 'LAVA 5MIN' in _phase: phase = 'P4'
+
+        # Error check
+        if not phase:
+            print ('Phase not registered', _ann)
+            continue
+
+        # If coronal, make a note
+        if 'COR' in _phase: phase += '-c'
+
+        # Make dict entry
+        ref = acc + '_' + time
+
+        # check if entry exists
+        try: print (ann_dict[ref], ref, ' Entry exists: ', _ann)
+        except: ann_dict[ref] = phase
+
+        # Save annotation dictionary
+        sdl.save_Dict_CSV(ann_dict, 'Acc_Time to Phase.csv')
+
+    for file in redownloads:
+
+        # Try and load the volume, don't load non dicoms
+        try: volume, header = sdl.load_DICOM_3D(file, return_header=True)
+        except: continue
+
+        # Retreive the tags we want
+        Accno = header['tags'].AccessionNumber
+        Time = header['tags'].AcquisitionTime
+        Series = header['tags'].SeriesDescription.upper()
+
+        # Remove decimals from time
+        try:
+            Time = Time.split('.')[0]
+        except:
+            pass
+
+        # Get the phase
+        file_prefix = Accno + '_' + Time
+        try: Phase = ann_dict[file_prefix]
+        except: continue
+
+        # Skip some shit
+        if 'SUB' in Series or 'DWI' in Series or 'OUTPHASE' in Series: continue
+        if 'IN OUT' in Series or 'DIFFUSION' in Series or 'ADC' in Series: continue
+        if 'LOCALIZER' in Series or 'LOC' in Series or 'T2' in Series or 'FAT' in Series: continue
+        if 'SSFSE' in Series or 'APPARENT' in Series or 'MRCP' in Series: continue
+        if '(' in Series and ')' in Series and '-' in Series:
+            fails.append(Series)
+            continue
+
+        # Save the gif, first define filename: ID_ANN_ACC_SERIES DESC_TIME
+        savefile = save_dir + file_prefix + '_' + Phase + '.nii.gz'
+        now = datetime.datetime.now()
+        print(now.strftime("%Y-%m-%d %H:%M:%S"), ' Saving: %s -- %s' %(savefile, Series))
+        sdl.save_volume(volume, savefile)
+
+        index += 1
+        del volume
+
+    # Done
+    print ('Skipped Subs: ', fails)
+
+
+def save_remaining():
+
+    """
+    Save all remaining annotated volumes
+    :return:
+    """
+
+    # Vars
+    index = 0
+    save_dir = home_dir + 'Sachin2/'
+    vols_dir = home_dir + 'All_Volumes'
+    Problem_cases = [3734178, 6044067]
+
+    # Load annotation dictionary with Accno_timestamp : Phase pairs
+    ann_dict = sdl.load_CSV_Dict('ID', 'Acc_Time to Phase.csv')
+    volumes = sdl.retreive_filelist('nii.gz', True, vols_dir)
+
+    for file in volumes:
+
+        # Try and load the volume, don't load non dicoms
+        try: volume = sdl.load_NIFTY(file)
+        except: continue
+
+        # Retreive the tags we want
+        base = os.path.basename(file).split('.')[0].replace('__', '_')
+        Accno = base.split('_')[1]
+        Time = base.split('_')[-1]
+
+        # Remove decimals from time
+        try:
+            Time = Time.split('.')[0]
+        except:
+            pass
+
+        # Get the phase
+        file_prefix = Accno + '_' + Time
+        try: Phase = ann_dict[file_prefix]['PH']
+        except: continue
+
+        # Save the gif if it doesn't exist
+        savefile = save_dir + file_prefix + '_' + Phase + '.nii.gz'
+        if not os.path.exists(savefile):
+            now = datetime.datetime.now()
+            print(now.strftime("%Y-%m-%d %H:%M:%S"), ' Saving: ', savefile)
+            sdl.save_volume(volume, savefile)
+        else:
+            print ('Skipping: ', savefile, ' already exists')
+
+        index += 1
+        del volume
+
+
+#save_lina_downloads()
+save_remaining()
