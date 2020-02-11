@@ -777,7 +777,9 @@ def make_MRN_Accno_List():
                 # Retreive and save
                 Accno = header['tags'].AccessionNumber
                 MRN = header['tags'].PatientID
-                save_dict[Accno] = MRN
+                Hospital = header['tags'].InstitutionName
+                Issuer = header['tags'].IssuerOfPatientID
+                save_dict[Accno] = {'MRN': MRN, 'Hospital': Hospital, 'Issuer':Issuer}
 
     redownloads = list()
     for (dirpath, dirnames, filenames) in os.walk(home_dir + 'DICOM/'):
@@ -794,9 +796,12 @@ def make_MRN_Accno_List():
         # Retreive and save
         Accno = header['tags'].AccessionNumber
         MRN = header['tags'].PatientID
-        save_dict[Accno] = MRN
+        Hospital = 'Columbia'
+        Issuer = 'Columbia'
+        save_dict[Accno] = {'MRN': MRN, 'Hospital': Hospital, 'Issuer': Issuer}
 
     # Save the info
+    print ('Saving dictionary to Patient_Key.csv')
     sdl.save_Dict_CSV(save_dict, 'Patient_Key.csv')
 
 
@@ -966,4 +971,5 @@ def save_remaining():
 
 
 #save_lina_downloads()
-save_remaining()
+#save_remaining()
+make_MRN_Accno_List()
