@@ -972,4 +972,34 @@ def save_remaining():
 
 #save_lina_downloads()
 #save_remaining()
-make_MRN_Accno_List()
+#make_MRN_Accno_List()
+
+
+"""
+Working with the coregistered new data
+"""
+
+def check_coregistrations():
+
+    """
+    Just checking what sachin did the second time around
+    :return:
+    """
+
+    coreg_folder = home_dir + '2nd_registered/'
+    files = sdl.retreive_filelist('nii.gz', True, path=coreg_folder)
+    shuffle(files)
+    files = [x for x in files if 'Warped' in x]
+
+    for file in files:
+        vol = sdl.load_NIFTY(file, reshape=False)
+        print (vol.shape, file.split('/')[-1])
+        try:
+            # sdd.display_volume(vol[..., 0], plot=False)
+            # sdd.display_volume(vol[..., 1], plot=False)
+            sdd.display_volume(vol, plot=True)
+        except:
+            print ('Cant show')
+            continue
+
+check_coregistrations()
