@@ -779,7 +779,13 @@ def make_MRN_Accno_List():
                 MRN = header['tags'].PatientID
                 Hospital = header['tags'].InstitutionName
                 Issuer = header['tags'].IssuerOfPatientID
-                save_dict[Accno] = {'MRN': MRN, 'Hospital': Hospital, 'Issuer':Issuer}
+                Name = str(header['tags'].PatientName)
+                Name = Name.replace('^', ' ')
+                try:
+                    Date = header['tags'].AcquisitionDate
+                except:
+                    Date = header['tags'].StudyDate
+                save_dict[Accno] = {'MRN': MRN, 'Name': Name, 'Date': Date, 'Hospital': Hospital, 'Issuer':Issuer}
 
     redownloads = list()
     for (dirpath, dirnames, filenames) in os.walk(home_dir + 'DICOM/'):
@@ -798,7 +804,13 @@ def make_MRN_Accno_List():
         MRN = header['tags'].PatientID
         Hospital = 'Columbia'
         Issuer = 'Columbia'
-        save_dict[Accno] = {'MRN': MRN, 'Hospital': Hospital, 'Issuer': Issuer}
+        Name = str(header['tags'].PatientName)
+        Name = Name.replace('^', ' ')
+        try:
+            Date = header['tags'].AcquisitionDate
+        except:
+            Date = header['tags'].StudyDate
+        save_dict[Accno] = {'MRN': MRN, 'Name': Name, 'Date': Date, 'Hospital': Hospital, 'Issuer': Issuer}
 
     # Save the info
     print ('Saving dictionary to Patient_Key.csv')
@@ -1002,4 +1014,4 @@ def check_coregistrations():
             print ('Cant show')
             continue
 
-check_coregistrations()
+#make_MRN_Accno_List()
